@@ -686,6 +686,17 @@
     if (want) {
       var f = fab.getBoundingClientRect(), b = $('#board').getBoundingClientRect(), m = 6;
       if (f.width && f.left < b.right + m && f.right > b.left - m && f.top < b.bottom + m && f.bottom > b.top - m) want = false;
+      // không che nút bấm / ô nhập / link (vd. nút sao chép mã phòng, Mời bạn, Xin thua)
+      if (want && f.width) {
+        var pts = [[.5, .5], [.15, .15], [.85, .15], [.15, .85], [.85, .85]];
+        for (var i = 0; i < pts.length && want; i++) {
+          var hit = document.elementsFromPoint(f.left + f.width * pts[i][0], f.top + f.height * pts[i][1]);
+          for (var j = 0; j < hit.length; j++) {
+            if (fab.contains(hit[j])) continue;
+            if (hit[j].closest('button, a, input, select, textarea, .link, .piece')) { want = false; break; }
+          }
+        }
+      }
     }
     fab.classList.toggle('show', want);
     fab.setAttribute('aria-hidden', want ? 'false' : 'true'); fab.tabIndex = want ? 0 : -1;
