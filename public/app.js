@@ -93,18 +93,22 @@
   var boardEl = $('#board'), piecesEl = $('#pieces'), hintsEl = $('#hints'), marksEl = $('#marks');
   var pieceEls = new Map(), prevBoard = null;
 
+  // Hình học bàn cờ (đơn vị SVG): lề 0.8 ô quanh lưới để quân ở mép nằm trọn trong khung gỗ
+  var BM = 80, BW = 960, BH = 1060;
+  window.__geo = { M: BM, W: BW, H: BH };
   function scr(sq) { var r = (sq / 9) | 0, c = sq % 9; if (S.flipped) { r = 9 - r; c = 8 - c; } return { r: r, c: c }; }
-  function posStyle(el, sq) { var p = scr(sq); el.style.left = ((50 + p.c * 100) / 9) + '%'; el.style.top = ((50 + p.r * 100) / 10) + '%'; }
+  function posStyle(el, sq) { var p = scr(sq); el.style.left = ((BM + p.c * 100) / BW * 100) + '%'; el.style.top = ((BM + p.r * 100) / BH * 100) + '%'; }
 
   function renderGrid() {
-    var s = '', i, x = function (c) { return 50 + c * 100; }, y = function (r) { return 50 + r * 100; };
-    s += '<rect class="frame" x="36" y="36" width="828" height="928"/>';
-    for (i = 0; i < 10; i++) s += '<line class="l" x1="50" x2="850" y1="' + y(i) + '" y2="' + y(i) + '"/>';
+    var s = '', i, x = function (c) { return BM + c * 100; }, y = function (r) { return BM + r * 100; };
+    s += '<rect class="frame" x="' + (BM - 14) + '" y="' + (BM - 14) + '" width="828" height="928"/>';
+    for (i = 0; i < 10; i++) s += '<line class="l" x1="' + x(0) + '" x2="' + x(8) + '" y1="' + y(i) + '" y2="' + y(i) + '"/>';
     for (i = 0; i < 9; i++) {
-      if (i === 0 || i === 8) s += '<line class="l" x1="' + x(i) + '" x2="' + x(i) + '" y1="50" y2="950"/>';
-      else s += '<line class="l" x1="' + x(i) + '" x2="' + x(i) + '" y1="50" y2="450"/><line class="l" x1="' + x(i) + '" x2="' + x(i) + '" y1="550" y2="950"/>';
+      if (i === 0 || i === 8) s += '<line class="l" x1="' + x(i) + '" x2="' + x(i) + '" y1="' + y(0) + '" y2="' + y(9) + '"/>';
+      else s += '<line class="l" x1="' + x(i) + '" x2="' + x(i) + '" y1="' + y(0) + '" y2="' + y(4) + '"/><line class="l" x1="' + x(i) + '" x2="' + x(i) + '" y1="' + y(5) + '" y2="' + y(9) + '"/>';
     }
-    s += '<path class="l" d="M350 50 L550 250 M550 50 L350 250 M350 750 L550 950 M550 750 L350 950"/>';
+    var P = function (c, r) { return x(c) + ' ' + y(r); };
+    s += '<path class="l" d="M' + P(3, 0) + ' L' + P(5, 2) + ' M' + P(5, 0) + ' L' + P(3, 2) + ' M' + P(3, 7) + ' L' + P(5, 9) + ' M' + P(5, 7) + ' L' + P(3, 9) + '"/>';
     var spots = [[2, 1], [2, 7], [7, 1], [7, 7]];
     [3, 6].forEach(function (r) { [0, 2, 4, 6, 8].forEach(function (c) { spots.push([r, c]); }); });
     var g = 9, L = 20, d = '';
@@ -116,16 +120,16 @@
       });
     });
     s += '<path class="l" d="' + d + '"/>';
-    s += '<text class="river" x="235" y="492" text-anchor="middle" dominant-baseline="middle">楚 河</text>';
-    s += '<text class="river" x="665" y="492" text-anchor="middle" dominant-baseline="middle">漢 界</text>';
-    s += '<text class="river-vn" x="235" y="538" text-anchor="middle">Sở Hà</text>';
-    s += '<text class="river-vn" x="665" y="538" text-anchor="middle">Hán Giới</text>';
+    s += '<text class="river" x="' + (x(2) - 15) + '" y="' + (y(4) + 42) + '" text-anchor="middle" dominant-baseline="middle">楚 河</text>';
+    s += '<text class="river" x="' + (x(6) + 15) + '" y="' + (y(4) + 42) + '" text-anchor="middle" dominant-baseline="middle">漢 界</text>';
+    s += '<text class="river-vn" x="' + (x(2) - 15) + '" y="' + (y(4) + 88) + '" text-anchor="middle">Sở Hà</text>';
+    s += '<text class="river-vn" x="' + (x(6) + 15) + '" y="' + (y(4) + 88) + '" text-anchor="middle">Hán Giới</text>';
     var bottom = S.flipped ? 'b' : 'r', top = X.other(bottom);
     for (i = 0; i < 9; i++) {
       var c = S.flipped ? 8 - i : i;
       var fb = bottom === 'r' ? 9 - c : c + 1, ft = top === 'r' ? 9 - c : c + 1;
-      s += '<text class="num" x="' + x(i) + '" y="24" text-anchor="middle" dominant-baseline="middle">' + ft + '</text>';
-      s += '<text class="num" x="' + x(i) + '" y="979" text-anchor="middle" dominant-baseline="middle">' + fb + '</text>';
+      s += '<text class="num" x="' + x(i) + '" y="' + (BM - 56) + '" text-anchor="middle" dominant-baseline="middle">' + ft + '</text>';
+      s += '<text class="num" x="' + x(i) + '" y="' + (BH - BM + 56) + '" text-anchor="middle" dominant-baseline="middle">' + fb + '</text>';
     }
     $('#grid').innerHTML = s;
   }
@@ -190,10 +194,10 @@
   // ---------- Tương tác chuột / chạm (bấm hoặc kéo thả) ----------
   function hit(e) {
     var rc = boardEl.getBoundingClientRect();
-    var x = (e.clientX - rc.left) / rc.width * 900, y = (e.clientY - rc.top) / rc.height * 1000;
-    var c = Math.round((x - 50) / 100), r = Math.round((y - 50) / 100);
+    var x = (e.clientX - rc.left) / rc.width * BW, y = (e.clientY - rc.top) / rc.height * BH;
+    var c = Math.round((x - BM) / 100), r = Math.round((y - BM) / 100);
     if (c < 0 || c > 8 || r < 0 || r > 9) return -1;
-    if (Math.hypot(x - (50 + c * 100), y - (50 + r * 100)) > 58) return -1;
+    if (Math.hypot(x - (BM + c * 100), y - (BM + r * 100)) > 58) return -1;
     if (S.flipped) { r = 9 - r; c = 8 - c; }
     return r * 9 + c;
   }
@@ -428,7 +432,8 @@
   });
   function copy(text, msg) {
     (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { toast(msg); }, function () {
-      var t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select();
+      var t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', '');
+      t.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;font-size:16px'; document.body.appendChild(t); t.select();
       try { document.execCommand('copy'); toast(msg); } catch (e) { toast(text); } t.remove();
     });
   }

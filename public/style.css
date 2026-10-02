@@ -20,6 +20,11 @@
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 html, body { margin: 0; min-height: 100%; max-width: 100%; }
+/* Lưới an toàn chống cuộn ngang (clip không phá position: sticky) */
+html { overflow-x: hidden; overflow-x: clip; }
+body { overflow-x: clip; }
+/* iOS tự phóng to khi focus ô nhập có cỡ chữ < 16px – luôn để >= 16px */
+input, textarea, select { font-size: 16px; }
 body {
   font-family: var(--font); color: var(--ink); background: var(--bg);
   -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
@@ -189,7 +194,7 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
 
 /* Bàn cờ */
 .board {
-  position: relative; width: 100%; aspect-ratio: 9 / 10; border-radius: 14px; container-type: inline-size;
+  position: relative; width: 100%; aspect-ratio: 960 / 1060; border-radius: 14px; container-type: inline-size;
   background:
     repeating-linear-gradient(91deg, rgba(110, 60, 15, .055) 0 2px, transparent 2px 7px, rgba(110, 60, 15, .03) 7px 8px, transparent 8px 15px),
     repeating-linear-gradient(89.3deg, rgba(255, 255, 255, .05) 0 1px, transparent 1px 23px),
@@ -204,13 +209,13 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
 .grid .frame { stroke: var(--wood-line); stroke-width: 3.4; fill: none; vector-effect: non-scaling-stroke; }
 .grid .river { font-family: var(--cjk); font-weight: 700; fill: rgba(107, 63, 29, .82); font-size: 56px; }
 .grid .river-vn { font-family: var(--font); font-weight: 600; fill: rgba(107, 63, 29, .62); font-size: 15px; letter-spacing: 4px; text-transform: uppercase; }
-.grid .num { font-family: var(--font); font-weight: 600; fill: rgba(107, 63, 29, .55); font-size: 20px; }
+.grid .num { font-family: var(--font); font-weight: 600; fill: rgba(107, 63, 29, .55); font-size: 18px; }
 .layer { position: absolute; inset: 0; }
 .hints, .marks { pointer-events: none; }
 
 .piece {
-  position: absolute; width: 10.6%; aspect-ratio: 1; border-radius: 50%; translate: -50% -50%;
-  display: grid; place-items: center; font-family: var(--cjk); font-weight: 700; font-size: 6.4cqw; line-height: 1;
+  position: absolute; width: 9.9%; aspect-ratio: 1; border-radius: 50%; translate: -50% -50%;
+  display: grid; place-items: center; font-family: var(--cjk); font-weight: 700; font-size: 6cqw; line-height: 1;
   background: radial-gradient(circle at 36% 30%, #fffaf0 0%, #f4e2bb 45%, #dfba7c 85%, #c99d5c 100%);
   box-shadow: 0 .45cqw 0 #94622f, 0 .9cqw 1.4cqw rgba(40, 20, 5, .45), inset 0 -.3cqw .6cqw rgba(120, 70, 20, .25);
   transition: left .28s cubic-bezier(.3, .7, .3, 1), top .28s cubic-bezier(.3, .7, .3, 1), transform .15s, box-shadow .15s, opacity .25s;
@@ -232,14 +237,14 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
 @keyframes checkPulse { 0%, 100% { box-shadow: 0 .45cqw 0 #94622f, 0 0 0 .5cqw rgba(230, 40, 30, .95), 0 0 2.5cqw rgba(255, 40, 30, .8); } 50% { box-shadow: 0 .45cqw 0 #94622f, 0 0 0 .9cqw rgba(230, 40, 30, .6), 0 0 4cqw rgba(255, 40, 30, .5); } }
 @keyframes pop { from { transform: scale(.4); opacity: 0; } }
 .mark-from {
-  position: absolute; width: 9%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%;
+  position: absolute; width: 8.4%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%;
   border: .45cqw dashed rgba(40, 110, 200, .7); background: rgba(66, 160, 255, .12);
 }
 .hint {
-  position: absolute; width: 3.2%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%;
+  position: absolute; width: 3%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%;
   background: rgba(30, 110, 50, .75); box-shadow: 0 0 0 .5cqw rgba(255, 255, 255, .35); animation: dotIn .18s ease-out;
 }
-.hint.cap { width: 11.8%; background: none; box-shadow: inset 0 0 0 .6cqw rgba(200, 40, 30, .85); z-index: 3; }
+.hint.cap { width: 11.1%; background: none; box-shadow: inset 0 0 0 .6cqw rgba(200, 40, 30, .85); z-index: 3; }
 @keyframes dotIn { from { transform: scale(0); } }
 .board-flash {
   position: absolute; left: 50%; top: 50%; translate: -50% -50%; pointer-events: none; z-index: 20;
@@ -291,7 +296,7 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
 .msg.me { align-self: flex-end; background: rgba(217, 166, 73, .18); }
 .msg.sys { align-self: center; background: none; color: var(--muted); font-size: 12.5px; }
 .chat-form { display: flex; gap: 8px; margin-top: 10px; }
-.chat-form input { padding: 10px 13px; font-size: 15px; }
+.chat-form input { padding: 10px 13px; font-size: 16px; }
 
 /* Modal & toast */
 .modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 20px; background: rgba(10, 6, 4, .6); backdrop-filter: blur(4px); animation: fade .2s; }
@@ -318,7 +323,7 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
   .cards .card:last-child { grid-column: span 2; }
 }
 @media (max-width: 680px) {
-  :root { --pad-x: 10px; --board-reserve: 184px; }
+  :root { --pad-x: 8px; --board-reserve: 184px; }
   .hero { grid-template-columns: minmax(0, 1fr); padding: 10px 0 20px; }
   .hero-pieces { display: none; }
   .hero p { font-size: 15.5px; }
