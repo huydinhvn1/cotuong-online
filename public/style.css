@@ -149,6 +149,10 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
 .join-form { display: flex; gap: 8px; }
 .join-form input, .chat-form input { min-width: 0; }
 .join-form input { text-transform: uppercase; letter-spacing: 4px; font-weight: 700; text-align: center; font-size: 18px; }
+/* Chữ gợi ý mã phòng mờ hơn 50% so với mặc định (darkgray #a9a9a9 của Safari/iOS -> alpha .5).
+   opacity:1 để Firefox không nhân thêm .54; -webkit-text-fill-color để iOS không lấy màu chữ nhập. */
+.join-form input::placeholder { color: rgba(169, 169, 169, .5); -webkit-text-fill-color: rgba(169, 169, 169, .5); opacity: 1; }
+.join-form input::-webkit-input-placeholder { color: rgba(169, 169, 169, .5); -webkit-text-fill-color: rgba(169, 169, 169, .5); opacity: 1; }
 .howto { display: grid; gap: 10px; margin-top: auto; padding-top: 6px; }
 .howto div { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14.5px; }
 .howto b { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: rgba(217, 166, 73, .15); color: var(--gold2); font-size: 13px; }
