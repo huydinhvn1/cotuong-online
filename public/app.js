@@ -25,6 +25,7 @@
     bulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
     exit: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
     send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+    chat: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
     eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
     clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'
   };
@@ -69,6 +70,7 @@
       else if (kind === 'win') [523, 659, 784, 1047].forEach(function (f, i) { Sound.tone(t + i * 0.12, f, 0.35, 0.15); });
       else if (kind === 'lose') [392, 330, 262].forEach(function (f, i) { Sound.tone(t + i * 0.16, f, 0.4, 0.14); });
       else if (kind === 'notify') this.tone(t, 880, 0.15, 0.12);
+      else if (kind === 'chat') { this.tone(t, 988, 0.12, 0.06); this.tone(t + 0.09, 1319, 0.18, 0.05); }
     }
   };
   function renderSoundBtn() { $('#soundBtn').innerHTML = icon(Sound.on ? 'vol' : 'mute'); }
@@ -319,12 +321,14 @@
     if (chk) t += ' — Chiếu tướng!';
     return { t: t, cls: chk ? 'check' : '', dot: turn };
   }
+  var baseTitle = 'Cờ Tướng Online';
+  function updateTitle() { document.title = (document.hidden && unread) ? '(' + unread + ') Tin nhắn mới – Cờ Tướng' : baseTitle; }
   function renderStatus() {
     var st = statusText(), el = $('#status');
     el.className = 'status ' + st.cls;
     el.innerHTML = (st.dot ? '<i class="turn-dot ' + st.dot + '"></i>' : '') + '<span>' + st.t + '</span>';
     var myTurn = S.mode === 'online' && canMove();
-    document.title = (myTurn ? '● Đến lượt bạn – ' : '') + 'Cờ Tướng Online';
+    baseTitle = (myTurn ? '● Đến lượt bạn – ' : '') + 'Cờ Tướng Online'; updateTitle();
   }
   function renderOffer() {
     var el = $('#offer'), p = S.pending;
@@ -400,6 +404,7 @@
   }
   function renderAll(forcePieces) {
     renderPieces(forcePieces); renderBars(); renderStatus(); renderOffer(); renderControls(); renderMoves(); renderRoomPanel(); tickClocks();
+    updateFab();
   }
 
   // ---------- Nút điều khiển ----------
@@ -570,7 +575,7 @@
     switch (m.type) {
       case 'created': S.roomId = m.roomId; history.pushState('room', '', '/r/' + m.roomId); store.set('ct_last_room', m.roomId); break;
       case 'state': applyRoom(m); break;
-      case 'chat_history': $('#chatList').innerHTML = ''; m.messages.forEach(function (x) { addChatMsg(x, true); }); break;
+      case 'chat_history': $('#chatList').innerHTML = ''; setUnread(0); m.messages.forEach(function (x) { addChatMsg(x, true); }); break;
       case 'chat': addChatMsg(m.message); break;
       case 'toast': toast(m.text); Sound.play('notify'); break;
       case 'error':
@@ -606,15 +611,94 @@
     if (newGame && room.gameNo > 1 && prevStatus === 'over') closeModal();
   }
 
-  // ---------- Chat ----------
-  var unread = 0;
+  // ---------- Chat + thông báo tin nhắn mới ----------
+  var unread = 0, chatToastTimer = null, chatToastHideTimer = null, chatToastExtra = 0;
+  function chatTabActive() { return !$('#game').hidden && !$('[data-body="chat"]').hidden; }
+  function onScreen(el, pad) {
+    if (!el) return false; var r = el.getBoundingClientRect(); pad = pad || 0;
+    return r.height > 0 && r.bottom > pad && r.top < innerHeight - pad && r.right > 0 && r.left < innerWidth;
+  }
+  // Người chơi đang thực sự nhìn thấy khung chat?
+  function chatVisible() { return !document.hidden && S.mode === 'online' && chatTabActive() && onScreen($('#chatList'), 40); }
+  function setUnread(n) {
+    unread = Math.max(0, n);
+    var t = unread > 99 ? '99+' : String(unread);
+    ['#chatBadge', '#fabBadge'].forEach(function (sel) { var b = $(sel); b.hidden = !unread; b.textContent = t; });
+    $('#chatTab').setAttribute('aria-label', 'Trò chuyện' + (unread ? ' – ' + unread + ' tin nhắn chưa đọc' : ''));
+    updateTitle(); updateFab();
+  }
+  function markReadIfVisible() { if (unread && chatVisible()) setUnread(0); }
+  function truncate(s, n) { s = String(s).replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; }
+
   function addChatMsg(x, silent) {
     var el = document.createElement('div');
     el.className = 'msg' + (x.mine ? ' me' : '');
     el.innerHTML = '<b class="' + (x.color || '') + '">' + esc(x.name) + (x.color ? ' · ' + SIDE_NAME[x.color] : ' · khán giả') + '</b>' + esc(x.text);
     var list = $('#chatList'); list.appendChild(el); list.scrollTop = list.scrollHeight;
-    if (!silent && !x.mine && $('[data-body="chat"]').hidden) { unread++; $('#chatBadge').hidden = false; Sound.play('notify'); }
+    // Không báo cho tin của chính mình, tin hệ thống hoặc lịch sử khi vào phòng
+    if (silent || x.mine || x.system || !x.name) return;
+    if (chatVisible()) return;
+    setUnread(unread + 1);
+    showChatToast(x);
+    Sound.play('chat');
+    try { if (navigator.vibrate) navigator.vibrate(50); } catch (e) { }
   }
+
+  function showChatToast(x) {
+    var el = $('#chatToast'), wasShown = el.classList.contains('in');
+    chatToastExtra = wasShown ? chatToastExtra + 1 : 0;
+    var av = $('#ctAvatar');
+    av.className = 'avatar ' + (x.color || 'spec');
+    av.textContent = x.color ? CH[x.color === 'r' ? 'K' : 'k'] : '觀';
+    $('#ctName').textContent = x.name + (x.color ? ' · ' + SIDE_NAME[x.color] : ' · khán giả');
+    $('#ctMsg').textContent = truncate(x.text, 60);
+    var cnt = $('#ctCount'); cnt.hidden = !chatToastExtra; cnt.textContent = '+' + chatToastExtra;
+    // đặt sát mép trên bàn cờ (nếu bàn cờ đang ở trên màn hình), luôn trong viewport
+    var b = $('#board').getBoundingClientRect(), top = 0;
+    if (b.bottom > 80 && b.top < innerHeight) top = Math.min(Math.max(b.top + 10, 0), innerHeight - 110);
+    el.style.setProperty('--toast-top', top + 'px');
+    clearTimeout(chatToastTimer); clearTimeout(chatToastHideTimer);
+    el.hidden = false; el.classList.remove('out'); void el.offsetWidth; el.classList.add('in');
+    chatToastTimer = setTimeout(hideChatToast, 4000);
+  }
+  function hideChatToast() {
+    var el = $('#chatToast'); clearTimeout(chatToastTimer);
+    if (el.hidden) return;
+    el.classList.remove('in'); el.classList.add('out');
+    chatToastHideTimer = setTimeout(function () { el.hidden = true; el.classList.remove('out'); chatToastExtra = 0; }, 260);
+  }
+  function openChat() {
+    hideChatToast();
+    $('#chatTab').click();
+    var panel = document.querySelector('.tabs-panel');
+    if (!onScreen($('#chatList'), 40)) panel.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); // không bật bàn phím
+  }
+  $('#chatToastBtn').addEventListener('click', openChat);
+  $('#chatToastClose').addEventListener('click', function (e) { e.stopPropagation(); hideChatToast(); });
+  $('#chatFab').addEventListener('click', openChat);
+
+  // Nút chat nổi (điện thoại): chỉ hiện khi khung chat không trên màn hình và không đè lên bàn cờ
+  var mqStacked = window.matchMedia('(max-width: 1020px)');
+  function updateFab() {
+    var fab = $('#chatFab'); if (!fab || !mqStacked) return;
+    var want = S.mode === 'online' && !$('#game').hidden && mqStacked.matches && !onScreen(document.querySelector('.tabs-panel'), 60);
+    if (want) {
+      var f = fab.getBoundingClientRect(), b = $('#board').getBoundingClientRect(), m = 6;
+      if (f.width && f.left < b.right + m && f.right > b.left - m && f.top < b.bottom + m && f.bottom > b.top - m) want = false;
+    }
+    fab.classList.toggle('show', want);
+    fab.setAttribute('aria-hidden', want ? 'false' : 'true'); fab.tabIndex = want ? 0 : -1;
+  }
+  var scrollRaf = 0;
+  function onViewportChange() {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(function () { scrollRaf = 0; markReadIfVisible(); updateFab(); });
+  }
+  window.addEventListener('scroll', onViewportChange, { passive: true });
+  window.addEventListener('resize', onViewportChange);
+  document.addEventListener('visibilitychange', function () { markReadIfVisible(); updateTitle(); });
+
   $('#chatForm').addEventListener('submit', function (e) {
     e.preventDefault(); var v = $('#chatInput').value.trim(); if (!v) return;
     if (S.mode !== 'online') { toast('Trò chuyện chỉ dùng khi chơi online'); return; }
@@ -624,9 +708,11 @@
     t.onclick = function () {
       document.querySelectorAll('.tab').forEach(function (x) { x.classList.toggle('on', x === t); });
       document.querySelectorAll('.tab-body').forEach(function (b) { b.hidden = b.dataset.body !== t.dataset.tab; });
-      if (t.dataset.tab === 'chat') { unread = 0; $('#chatBadge').hidden = true; var l = $('#chatList'); l.scrollTop = l.scrollHeight; }
+      if (t.dataset.tab === 'chat') { setUnread(0); hideChatToast(); var l = $('#chatList'); l.scrollTop = l.scrollHeight; }
+      updateFab();
     };
   });
+  $('#chatFab').insertAdjacentHTML('afterbegin', icon('chat'));
   document.querySelector('[data-icon="send"]').innerHTML = icon('send');
 
   // ================= Điều hướng =================
@@ -636,7 +722,8 @@
     $('#lobby').hidden = v !== 'lobby'; $('#game').hidden = v !== 'game';
     $('#chatTab').hidden = S.mode !== 'online';
     if (S.mode !== 'online') { document.querySelector('.tab[data-tab="moves"]').click(); }
-    if (v === 'lobby') { renderResume(); document.title = 'Cờ Tướng Online'; connBanner(false); }
+    if (v === 'lobby') { renderResume(); baseTitle = 'Cờ Tướng Online'; setUnread(0); hideChatToast(); connBanner(false); }
+    updateFab();
   }
   function leaveOnline() { if (S.mode === 'online') { Net.send({ type: 'leave' }); S.roomId = null; S.gameNo = 0; } }
   function leaveGame() {

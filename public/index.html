@@ -134,7 +134,7 @@
     <div class="panel tabs-panel">
       <div class="tabs">
         <button class="tab on" data-tab="moves">Nước đi</button>
-        <button class="tab" data-tab="chat" id="chatTab">Trò chuyện <i class="badge" id="chatBadge" hidden></i></button>
+        <button class="tab" data-tab="chat" id="chatTab">Trò chuyện<i class="badge" id="chatBadge" hidden></i></button>
       </div>
       <div class="tab-body" data-body="moves">
         <ol class="moves" id="moves"></ol>
@@ -152,6 +152,17 @@
 
 <div class="modal" id="modal" hidden><div class="modal-card" id="modalCard"></div></div>
 <div class="toasts" id="toasts"></div>
+
+<!-- Thông báo tin nhắn mới -->
+<div class="chat-toast" id="chatToast" role="status" aria-live="polite" hidden>
+  <button class="ct-main" id="chatToastBtn" type="button" aria-label="Mở trò chuyện">
+    <span class="avatar" id="ctAvatar"></span>
+    <span class="ct-text"><b id="ctName"></b><span id="ctMsg"></span></span>
+    <span class="ct-count" id="ctCount" hidden></span>
+  </button>
+  <button class="ct-close" id="chatToastClose" type="button" aria-label="Đóng thông báo">×</button>
+</div>
+<button class="chat-fab" id="chatFab" type="button" aria-label="Trò chuyện" aria-hidden="true" tabindex="-1"><i class="badge" id="fabBadge" hidden></i></button>
 
 <script src="/shared/xiangqi.js"></script>
 <script src="/app.js"></script>

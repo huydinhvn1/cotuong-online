@@ -10,6 +10,9 @@ Yêu cầu: **Node.js 18+**
 npm install
 npm start          # mở http://localhost:3000
 npm test           # chạy kiểm thử (luật cờ, AI, server WebSocket)
+# Kiểm thử trình duyệt (cần playwright-core + Chromium/WebKit):
+# node scripts/check-viewport.js     – bố cục di động (server đang chạy ở :3000)
+# node scripts/check-chat-notify.js  – thông báo tin nhắn giữa 2 người chơi + khán giả
 ```
 
 Đổi cổng: `PORT=8080 npm start`
@@ -20,6 +23,7 @@ npm test           # chạy kiểm thử (luật cờ, AI, server WebSocket)
   Hoà khi: hai bên đồng ý, lặp lại thế cờ 3 lần (đơn giản hoá), 120 nước liên tiếp không ăn quân, hoặc không còn quân tấn công.
 - **Chơi online**: tạo phòng → gửi link `/r/MÃPHÒNG` hoặc mã 6 ký tự. Người thứ 2 vào là đối thủ, người sau vào xem. Chọn Đỏ/Đen/Ngẫu nhiên.
 - Xin đi lại, cầu hoà, xin thua, ván mới (tự đổi màu), chat trong phòng.
+- Thông báo tin nhắn mới: banner nổi trên bàn cờ (chạm để mở Trò chuyện), số tin chưa đọc trên tab và nút chat nổi (điện thoại), âm báo nhẹ (theo nút tắt tiếng), rung, tiêu đề tab `(N) Tin nhắn mới` khi đang ở tab khác.
 - **Đồng hồ** mỗi bên (5/10/15/30 phút, có thể cộng giờ mỗi nước). Đồng hồ chạy từ sau nước đầu tiên.
 - **F5 / mất mạng không mất ván**: trạng thái phòng giữ trên server, trình duyệt tự kết nối lại và giữ đúng ghế.
 - **Chơi với máy**: AI alpha-beta (iterative deepening, quiescence, bảng điểm vị trí) chạy trong Web Worker. Có gợi ý nước đi, đi lại, ván tự lưu.

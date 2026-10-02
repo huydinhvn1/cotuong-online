@@ -148,3 +148,34 @@ test('Chiếu bí kết thúc ván trên server', async () => {
   await B.wait(m => m.type === 'error');
   A.close(); B.close();
 });
+
+test('Chat: người gửi nhận mine=true, người nhận và khán giả nhận mine=false (cơ sở cho thông báo tin nhắn)', async () => {
+  const A = new Client('tok-CA', 'An'), B = new Client('tok-CB', 'Bình'), C = new Client('tok-CC', 'Xem');
+  await A.open(); await B.open(); await C.open();
+  A.send({ type: 'create', minutes: 5, increment: 0, color: 'r' });
+  const { roomId } = await A.wait(m => m.type === 'created');
+  B.send({ type: 'join', roomId }); await A.state(r => r.status === 'playing');
+  C.send({ type: 'join', roomId }); await A.state(r => r.spectators === 1);
+
+  const got = (cl, text) => cl.wait(m => m.type === 'chat' && m.message.text === text);
+  let p = [got(A, 'xin chào'), got(B, 'xin chào'), got(C, 'xin chào')];
+  A.send({ type: 'chat', text: 'xin chào' });
+  let [ma, mb, mc] = await Promise.all(p);
+  assert.equal(ma.message.mine, true);
+  assert.equal(mb.message.mine, false); assert.equal(mb.message.name, 'An'); assert.equal(mb.message.color, 'r');
+  assert.equal(mc.message.mine, false);
+
+  // tin của khán giả cũng tới người chơi với color=null
+  p = [got(A, 'hay quá'), got(B, 'hay quá'), got(C, 'hay quá')];
+  C.send({ type: 'chat', text: 'hay quá' });
+  [ma, mb, mc] = await Promise.all(p);
+  assert.equal(ma.message.mine, false); assert.equal(ma.message.color, null); assert.equal(ma.message.name, 'Xem');
+  assert.equal(mb.message.mine, false); assert.equal(mc.message.mine, true);
+
+  // vào lại phòng: lịch sử chat giữ cờ mine theo từng người
+  const B2 = new Client('tok-CB', 'Bình'); await B2.open();
+  B2.send({ type: 'join', roomId });
+  const h = await B2.wait(m => m.type === 'chat_history');
+  assert.deepEqual(h.messages.map(m => [m.text, m.mine]), [['xin chào', false], ['hay quá', false]]);
+  A.close(); B.close(); C.close(); B2.close();
+});
