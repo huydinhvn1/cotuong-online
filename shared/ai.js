@@ -165,12 +165,42 @@
     return best;
   };
 
-  /** Tìm nước tốt nhất. opts: {depth, timeMs, noise}. Trả về {from,to,score,depth,nodes} */
-  Searcher.prototype.search = function (board, side) {
+  /** Nước m của bên side có chiếu tướng đối phương không */
+  function givesCheck(b, m, side) {
+    var f = mFrom(m), t = mTo(m), cap = b[t];
+    b[t] = b[f]; b[f] = '';
+    var c = inCheck(b, side === 'r' ? 'b' : 'r');
+    b[f] = b[t]; b[t] = cap;
+    return c;
+  }
+
+  // Luật cho máy: không được chiếu liên tục quá MAX_CONSECUTIVE_CHECKS lần
+  var MAX_CONSECUTIVE_CHECKS = 5;
+  /** Số nước chiếu liên tiếp gần nhất của bên side. history: [{side, check}] theo thứ tự ván cờ
+   *  (nước của đối phương ở giữa không làm đứt chuỗi; một nước không chiếu của side thì đứt). */
+  function consecutiveChecks(history, side) {
+    var n = 0;
+    for (var i = (history || []).length - 1; i >= 0; i--) {
+      var h = history[i];
+      if (!h || h.side !== side) continue;
+      if (h.check) n++; else break;
+    }
+    return n;
+  }
+
+  /** Tìm nước tốt nhất. opts (tuỳ chọn): {avoidCheck: true} = bỏ các nước chiếu nếu còn nước không chiếu.
+   *  Trả về {from,to,score,depth,nodes,avoidedCheck} */
+  Searcher.prototype.search = function (board, side, opts) {
     var b = board.slice();
     this.deadline = Date.now() + this.timeMs;
     var root = X.legalMovesRaw(b, side);
     if (!root.length) return null;
+    var avoided = false;
+    if (opts && opts.avoidCheck) {
+      var quiet = root.filter(function (m) { return !givesCheck(b, m, side); });
+      if (quiet.length && quiet.length < root.length) { root = quiet; avoided = true; }
+      // chỉ còn nước chiếu -> vẫn cho đi
+    }
     var opp = side === 'r' ? 'b' : 'r';
     var bestMove = root[0], bestScore = -MATE, doneDepth = 0, self = this;
     var noiseMap = {};
@@ -191,7 +221,7 @@
       if (Math.abs(bestScore) > MATE - 100) break; // đã thấy chiếu bí
       if (this.stop) break;
     }
-    return { from: mFrom(bestMove), to: mTo(bestMove), score: bestScore, depth: doneDepth, nodes: this.nodes };
+    return { from: mFrom(bestMove), to: mTo(bestMove), score: bestScore, depth: doneDepth, nodes: this.nodes, avoidedCheck: avoided };
   };
 
   var LEVELS = {
@@ -202,11 +232,18 @@
     5: { name: 'Đại sư', depth: 8, timeMs: 6000, noise: 0 }
   };
 
-  function bestMove(fen, level) {
+  /** opts (tuỳ chọn): {history: [{side, check}]} – lịch sử nước đi để áp luật không chiếu quá 5 lần liên tiếp;
+   *  hoặc {avoidCheck: true} để ép bỏ nước chiếu. */
+  function bestMove(fen, level, opts) {
     var s = X.parseFen(fen);
     var cfg = LEVELS[level] || LEVELS[3];
-    return new Searcher(cfg).search(s.board, s.turn);
+    opts = opts || {};
+    var avoid = !!opts.avoidCheck || consecutiveChecks(opts.history, s.turn) >= MAX_CONSECUTIVE_CHECKS;
+    return new Searcher(cfg).search(s.board, s.turn, { avoidCheck: avoid });
   }
 
-  return { bestMove: bestMove, evaluate: evaluate, Searcher: Searcher, LEVELS: LEVELS, MATE: MATE };
+  return {
+    bestMove: bestMove, evaluate: evaluate, Searcher: Searcher, LEVELS: LEVELS, MATE: MATE,
+    givesCheck: givesCheck, consecutiveChecks: consecutiveChecks, MAX_CONSECUTIVE_CHECKS: MAX_CONSECUTIVE_CHECKS
+  };
 });

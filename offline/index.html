@@ -161,6 +161,10 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
 .join-form { display: flex; gap: 8px; }
 .join-form input, .chat-form input { min-width: 0; }
 .join-form input { text-transform: uppercase; letter-spacing: 4px; font-weight: 700; text-align: center; font-size: 18px; }
+/* Chữ gợi ý mã phòng mờ hơn 50% so với mặc định (darkgray #a9a9a9 của Safari/iOS -> alpha .5).
+   opacity:1 để Firefox không nhân thêm .54; -webkit-text-fill-color để iOS không lấy màu chữ nhập. */
+.join-form input::placeholder { color: rgba(169, 169, 169, .5); -webkit-text-fill-color: rgba(169, 169, 169, .5); opacity: 1; }
+.join-form input::-webkit-input-placeholder { color: rgba(169, 169, 169, .5); -webkit-text-fill-color: rgba(169, 169, 169, .5); opacity: 1; }
 .howto { display: grid; gap: 10px; margin-top: auto; padding-top: 6px; }
 .howto div { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14.5px; }
 .howto b { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: rgba(217, 166, 73, .15); color: var(--gold2); font-size: 13px; }
@@ -291,7 +295,47 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
 .tabs { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(0, 0, 0, .25); margin-bottom: 12px; }
 .tab { flex: 1; border: none; background: none; padding: 9px; border-radius: 9px; font-weight: 600; font-size: 14px; color: var(--muted); position: relative; }
 .tab.on { background: rgba(255, 244, 225, .1); color: var(--ink); }
-.badge { position: absolute; top: 6px; right: 14px; width: 8px; height: 8px; border-radius: 50%; background: var(--red-soft); }
+.badge {
+  display: inline-grid; place-items: center; min-width: 19px; height: 19px; padding: 0 5px; margin-left: 7px; vertical-align: 1px;
+  border-radius: 99px; background: #e5483b; color: #fff; font: 800 11px/1 var(--font); font-style: normal;
+  box-shadow: 0 0 0 2px rgba(20, 12, 8, .55); animation: badgePop .3s ease-out;
+}
+@keyframes badgePop { from { transform: scale(.4); } 60% { transform: scale(1.15); } }
+
+/* Thông báo tin nhắn mới (nổi trên mép trên bàn cờ) */
+.chat-toast {
+  position: fixed; z-index: 70; left: 50%; translate: -50% 0;
+  top: max(calc(env(safe-area-inset-top) + 8px), var(--toast-top, 0px));
+  width: min(420px, calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  display: flex; align-items: stretch; border-radius: 16px; overflow: hidden;
+  background: rgba(36, 26, 20, .94); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(217, 166, 73, .45); box-shadow: 0 14px 40px rgba(0, 0, 0, .5);
+  opacity: 0; transform: translateY(-14px) scale(.98); transition: opacity .22s, transform .22s cubic-bezier(.2, .8, .3, 1.2);
+}
+.chat-toast.in { opacity: 1; transform: none; }
+.chat-toast.out { opacity: 0; transform: translateY(-10px); transition-duration: .2s; }
+.ct-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 11px; padding: 10px 6px 10px 11px; border: none; background: none; text-align: left; }
+.ct-main .avatar { width: 34px; height: 34px; font-size: 18px; }
+.avatar.spec { color: #5b4a3a; }
+.ct-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ct-text b { font-size: 13px; color: var(--gold2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ct-text span { font-size: 14.5px; color: var(--ink); line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.ct-count { flex: none; font-size: 12px; font-weight: 800; color: #fff; background: #e5483b; border-radius: 99px; padding: 3px 7px; }
+.ct-close { flex: none; width: 40px; border: none; background: none; color: var(--muted); font-size: 22px; line-height: 1; }
+.ct-close:hover { color: var(--ink); }
+
+/* Nút chat nổi trên điện thoại */
+.chat-fab {
+  position: fixed; z-index: 40; width: 54px; height: 54px; border-radius: 50%; border: none; display: grid; place-items: center;
+  right: calc(env(safe-area-inset-right) + 14px); bottom: calc(env(safe-area-inset-bottom) + 18px);
+  background: linear-gradient(180deg, var(--gold2), var(--gold)); color: #2a1a0c;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .45);
+  opacity: 0; transform: scale(.6); pointer-events: none; transition: opacity .2s, transform .2s;
+}
+.chat-fab.show { opacity: 1; transform: none; pointer-events: auto; }
+.chat-fab svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.chat-fab .badge { position: absolute; top: -3px; right: -3px; margin: 0; }
+@media (min-width: 1021px) { .chat-fab { display: none; } }
 .moves { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; font-variant-numeric: tabular-nums; }
 .moves li { display: grid; grid-template-columns: 34px 1fr 1fr; gap: 6px; padding: 5px 6px; border-radius: 8px; font-size: 14.5px; }
 .moves li:nth-child(odd) { background: rgba(255, 255, 255, .025); }
@@ -1000,12 +1044,42 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
     return best;
   };
 
-  /** Tìm nước tốt nhất. opts: {depth, timeMs, noise}. Trả về {from,to,score,depth,nodes} */
-  Searcher.prototype.search = function (board, side) {
+  /** Nước m của bên side có chiếu tướng đối phương không */
+  function givesCheck(b, m, side) {
+    var f = mFrom(m), t = mTo(m), cap = b[t];
+    b[t] = b[f]; b[f] = '';
+    var c = inCheck(b, side === 'r' ? 'b' : 'r');
+    b[f] = b[t]; b[t] = cap;
+    return c;
+  }
+
+  // Luật cho máy: không được chiếu liên tục quá MAX_CONSECUTIVE_CHECKS lần
+  var MAX_CONSECUTIVE_CHECKS = 5;
+  /** Số nước chiếu liên tiếp gần nhất của bên side. history: [{side, check}] theo thứ tự ván cờ
+   *  (nước của đối phương ở giữa không làm đứt chuỗi; một nước không chiếu của side thì đứt). */
+  function consecutiveChecks(history, side) {
+    var n = 0;
+    for (var i = (history || []).length - 1; i >= 0; i--) {
+      var h = history[i];
+      if (!h || h.side !== side) continue;
+      if (h.check) n++; else break;
+    }
+    return n;
+  }
+
+  /** Tìm nước tốt nhất. opts (tuỳ chọn): {avoidCheck: true} = bỏ các nước chiếu nếu còn nước không chiếu.
+   *  Trả về {from,to,score,depth,nodes,avoidedCheck} */
+  Searcher.prototype.search = function (board, side, opts) {
     var b = board.slice();
     this.deadline = Date.now() + this.timeMs;
     var root = X.legalMovesRaw(b, side);
     if (!root.length) return null;
+    var avoided = false;
+    if (opts && opts.avoidCheck) {
+      var quiet = root.filter(function (m) { return !givesCheck(b, m, side); });
+      if (quiet.length && quiet.length < root.length) { root = quiet; avoided = true; }
+      // chỉ còn nước chiếu -> vẫn cho đi
+    }
     var opp = side === 'r' ? 'b' : 'r';
     var bestMove = root[0], bestScore = -MATE, doneDepth = 0, self = this;
     var noiseMap = {};
@@ -1026,7 +1100,7 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
       if (Math.abs(bestScore) > MATE - 100) break; // đã thấy chiếu bí
       if (this.stop) break;
     }
-    return { from: mFrom(bestMove), to: mTo(bestMove), score: bestScore, depth: doneDepth, nodes: this.nodes };
+    return { from: mFrom(bestMove), to: mTo(bestMove), score: bestScore, depth: doneDepth, nodes: this.nodes, avoidedCheck: avoided };
   };
 
   var LEVELS = {
@@ -1037,13 +1111,20 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
     5: { name: 'Đại sư', depth: 8, timeMs: 6000, noise: 0 }
   };
 
-  function bestMove(fen, level) {
+  /** opts (tuỳ chọn): {history: [{side, check}]} – lịch sử nước đi để áp luật không chiếu quá 5 lần liên tiếp;
+   *  hoặc {avoidCheck: true} để ép bỏ nước chiếu. */
+  function bestMove(fen, level, opts) {
     var s = X.parseFen(fen);
     var cfg = LEVELS[level] || LEVELS[3];
-    return new Searcher(cfg).search(s.board, s.turn);
+    opts = opts || {};
+    var avoid = !!opts.avoidCheck || consecutiveChecks(opts.history, s.turn) >= MAX_CONSECUTIVE_CHECKS;
+    return new Searcher(cfg).search(s.board, s.turn, { avoidCheck: avoid });
   }
 
-  return { bestMove: bestMove, evaluate: evaluate, Searcher: Searcher, LEVELS: LEVELS, MATE: MATE };
+  return {
+    bestMove: bestMove, evaluate: evaluate, Searcher: Searcher, LEVELS: LEVELS, MATE: MATE,
+    givesCheck: givesCheck, consecutiveChecks: consecutiveChecks, MAX_CONSECUTIVE_CHECKS: MAX_CONSECUTIVE_CHECKS
+  };
 });
 
 </script>
@@ -1515,7 +1596,7 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
   var worker = null, workerBroken = false;
   function workerSource() {
     return document.getElementById('src-xiangqi').textContent + '\n;\n' + document.getElementById('src-ai').textContent +
-      '\n;self.onmessage=function(e){var d=e.data;var r=self.XiangqiAI.bestMove(d.fen,d.level);self.postMessage({id:d.id,kind:d.kind,move:r});};';
+      '\n;self.onmessage=function(e){var d=e.data;var r=self.XiangqiAI.bestMove(d.fen,d.level,d.opts);self.postMessage({id:d.id,kind:d.kind,move:r});};';
   }
   function getWorker() {
     if (worker || workerBroken) return worker;
@@ -1536,7 +1617,7 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
     setTimeout(function () {
       if (job.id !== S.ai.req) return;
       var lvl = Math.min(job.level, 4);
-      var mv = window.XiangqiAI.bestMove(job.fen, lvl);
+      var mv = window.XiangqiAI.bestMove(job.fen, lvl, job.opts);
       onWorker({ data: { id: job.id, kind: job.kind, move: mv } });
     }, 60);
   }
@@ -1562,7 +1643,9 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
   }
   function aiThink() {
     S.ai.thinking = true; S.ai.req++; S.ai.minUntil = Date.now() + 450;
-    runJob({ id: S.ai.req, kind: 'move', fen: S.game.fen(), level: S.ai.level });
+    // gửi lịch sử (bên đi + có chiếu không) để máy không chiếu liên tục quá 5 lần
+    var hist = S.moves.map(function (m) { return { side: m.side, check: !!m.check }; });
+    runJob({ id: S.ai.req, kind: 'move', fen: S.game.fen(), level: S.ai.level, opts: { history: hist } });
   }
   function aiHint() {
     if (!canMove()) return;

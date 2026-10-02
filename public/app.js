@@ -501,7 +501,9 @@
   }
   function aiThink() {
     S.ai.thinking = true; S.ai.req++; S.ai.minUntil = Date.now() + 450;
-    getWorker().postMessage({ id: S.ai.req, kind: 'move', fen: S.game.fen(), level: S.ai.level });
+    // gửi lịch sử (bên đi + có chiếu không) để máy không chiếu liên tục quá 5 lần
+    var hist = S.moves.map(function (m) { return { side: m.side, check: !!m.check }; });
+    getWorker().postMessage({ id: S.ai.req, kind: 'move', fen: S.game.fen(), level: S.ai.level, opts: { history: hist } });
   }
   function aiHint() {
     if (!canMove()) return;
