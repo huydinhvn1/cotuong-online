@@ -501,8 +501,8 @@
   }
   function aiThink() {
     S.ai.thinking = true; S.ai.req++; S.ai.minUntil = Date.now() + 450;
-    // gửi lịch sử (bên đi + có chiếu không) để máy không chiếu liên tục quá 5 lần
-    var hist = S.moves.map(function (m) { return { side: m.side, check: !!m.check }; });
+    // gửi lịch sử (bên đi, có chiếu không, thế cờ sau nước đó) để máy không chiếu lặp quá 5 lần
+    var g = S.game, hist = g.history.map(function (r, i) { return { side: r.side, check: !!r.check, pos: g.positions[i + 1] }; });
     getWorker().postMessage({ id: S.ai.req, kind: 'move', fen: S.game.fen(), level: S.ai.level, opts: { history: hist } });
   }
   function aiHint() {

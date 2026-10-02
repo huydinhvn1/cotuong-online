@@ -1053,32 +1053,47 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
     return c;
   }
 
-  // Luật cho máy: không được chiếu liên tục quá MAX_CONSECUTIVE_CHECKS lần
-  var MAX_CONSECUTIVE_CHECKS = 5;
-  /** Số nước chiếu liên tiếp gần nhất của bên side. history: [{side, check}] theo thứ tự ván cờ
-   *  (nước của đối phương ở giữa không làm đứt chuỗi; một nước không chiếu của side thì đứt). */
-  function consecutiveChecks(history, side) {
-    var n = 0;
+  // Luật cho máy: không chiếu lặp (chiếu dai) – trong chuỗi nước chiếu liên tiếp hiện tại của máy,
+  // một thế cờ (bàn cờ + bên đi) đã xuất hiện MAX_CHECK_REPEATS lần sau nước chiếu của máy thì không được
+  // chiếu để tạo lại thế đó lần nữa. Nước chiếu không lặp: không giới hạn. Nước chiếu bí: luôn được đi.
+  var MAX_CHECK_REPEATS = 5;
+  function posKey(b, turn) { return X.boardFen(b) + turn; }
+  /** Đếm số lần mỗi thế cờ xuất hiện sau các nước chiếu trong chuỗi chiếu liên tiếp gần nhất của side.
+   *  history: [{side, check, pos}] theo thứ tự ván (pos = boardFen + bên đi sau nước đó). Nước của đối phương
+   *  ở giữa không làm đứt chuỗi; một nước không chiếu của side thì đứt. */
+  function checkRunPositions(history, side) {
+    var counts = {};
     for (var i = (history || []).length - 1; i >= 0; i--) {
       var h = history[i];
       if (!h || h.side !== side) continue;
-      if (h.check) n++; else break;
+      if (!h.check) break;
+      if (h.pos) counts[h.pos] = (counts[h.pos] || 0) + 1;
     }
-    return n;
+    return counts;
+  }
+  /** Nước m (của side) có bị cấm theo luật chiếu lặp không */
+  function isForbiddenRepeatCheck(b, m, side, counts) {
+    var opp = side === 'r' ? 'b' : 'r', f = mFrom(m), t = mTo(m), cap = b[t], res = false;
+    b[t] = b[f]; b[f] = '';
+    if (inCheck(b, opp) && (counts[posKey(b, opp)] || 0) >= MAX_CHECK_REPEATS) {
+      res = X.legalMovesRaw(b, opp).length > 0; // chiếu bí thì luôn được phép
+    }
+    b[f] = b[t]; b[t] = cap;
+    return res;
   }
 
-  /** Tìm nước tốt nhất. opts (tuỳ chọn): {avoidCheck: true} = bỏ các nước chiếu nếu còn nước không chiếu.
-   *  Trả về {from,to,score,depth,nodes,avoidedCheck} */
+  /** Tìm nước tốt nhất. opts (tuỳ chọn): {forbid: function(b, m, side) -> true nếu nước bị cấm}.
+   *  Nếu mọi nước đều bị cấm thì vẫn đi được. Trả về {from,to,score,depth,nodes,avoidedCheck} */
   Searcher.prototype.search = function (board, side, opts) {
     var b = board.slice();
     this.deadline = Date.now() + this.timeMs;
     var root = X.legalMovesRaw(b, side);
     if (!root.length) return null;
     var avoided = false;
-    if (opts && opts.avoidCheck) {
-      var quiet = root.filter(function (m) { return !givesCheck(b, m, side); });
-      if (quiet.length && quiet.length < root.length) { root = quiet; avoided = true; }
-      // chỉ còn nước chiếu -> vẫn cho đi
+    if (opts && opts.forbid) {
+      var ok = root.filter(function (m) { return !opts.forbid(b, m, side); });
+      if (ok.length && ok.length < root.length) { root = ok; avoided = true; }
+      // mọi nước đều bị cấm -> vẫn cho đi
     }
     var opp = side === 'r' ? 'b' : 'r';
     var bestMove = root[0], bestScore = -MATE, doneDepth = 0, self = this;
@@ -1111,19 +1126,20 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
     5: { name: 'Đại sư', depth: 8, timeMs: 6000, noise: 0 }
   };
 
-  /** opts (tuỳ chọn): {history: [{side, check}]} – lịch sử nước đi để áp luật không chiếu quá 5 lần liên tiếp;
-   *  hoặc {avoidCheck: true} để ép bỏ nước chiếu. */
+  /** opts (tuỳ chọn): {history: [{side, check, pos}]} – lịch sử nước đi để áp luật không chiếu lặp quá 5 lần. */
   function bestMove(fen, level, opts) {
     var s = X.parseFen(fen);
     var cfg = LEVELS[level] || LEVELS[3];
-    opts = opts || {};
-    var avoid = !!opts.avoidCheck || consecutiveChecks(opts.history, s.turn) >= MAX_CONSECUTIVE_CHECKS;
-    return new Searcher(cfg).search(s.board, s.turn, { avoidCheck: avoid });
+    var counts = checkRunPositions(opts && opts.history, s.turn), any = false;
+    for (var k in counts) if (counts[k] >= MAX_CHECK_REPEATS) { any = true; break; }
+    var forbid = any ? function (b, m, side) { return isForbiddenRepeatCheck(b, m, side, counts); } : null;
+    return new Searcher(cfg).search(s.board, s.turn, { forbid: forbid });
   }
 
   return {
     bestMove: bestMove, evaluate: evaluate, Searcher: Searcher, LEVELS: LEVELS, MATE: MATE,
-    givesCheck: givesCheck, consecutiveChecks: consecutiveChecks, MAX_CONSECUTIVE_CHECKS: MAX_CONSECUTIVE_CHECKS
+    givesCheck: givesCheck, posKey: posKey, checkRunPositions: checkRunPositions,
+    isForbiddenRepeatCheck: isForbiddenRepeatCheck, MAX_CHECK_REPEATS: MAX_CHECK_REPEATS
   };
 });
 
@@ -1643,8 +1659,8 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
   }
   function aiThink() {
     S.ai.thinking = true; S.ai.req++; S.ai.minUntil = Date.now() + 450;
-    // gửi lịch sử (bên đi + có chiếu không) để máy không chiếu liên tục quá 5 lần
-    var hist = S.moves.map(function (m) { return { side: m.side, check: !!m.check }; });
+    // gửi lịch sử (bên đi, có chiếu không, thế cờ sau nước đó) để máy không chiếu lặp quá 5 lần
+    var g = S.game, hist = g.history.map(function (r, i) { return { side: r.side, check: !!r.check, pos: g.positions[i + 1] }; });
     runJob({ id: S.ai.req, kind: 'move', fen: S.game.fen(), level: S.ai.level, opts: { history: hist } });
   }
   function aiHint() {
