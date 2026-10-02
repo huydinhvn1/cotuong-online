@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a1310">
+<title>Cờ Tướng Online</title>
+<meta name="description" content="Chơi cờ tướng online với bạn bè hoặc với máy – miễn phí, không cần cài đặt.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@700&text=%E5%B8%A5%E4%BB%95%E7%9B%B8%E5%82%8C%E4%BF%A5%E7%82%AE%E5%85%B5%E5%B0%87%E5%A3%AB%E8%B1%A1%E9%A6%AC%E8%BB%8A%E7%A0%B2%E5%8D%92%E6%A5%9A%E6%B2%B3%E6%BC%A2%E7%95%8C%E8%B1%A1%E6%A3%8B&display=block">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="bg-deco" aria-hidden="true"></div>
+
+<header class="topbar">
+  <a class="brand" href="/" data-nav="home">
+    <span class="brand-mark">帥</span>
+    <span class="brand-text">Cờ Tướng<small>online</small></span>
+  </a>
+  <div class="topbar-actions">
+    <span class="conn" id="conn" hidden><i></i><span>Đang kết nối…</span></span>
+    <button class="icon-btn" id="soundBtn" title="Âm thanh" aria-label="Bật/tắt âm thanh"></button>
+  </div>
+</header>
+
+<!-- ============ SẢNH ============ -->
+<main id="lobby" class="view lobby">
+  <section class="hero">
+    <div class="hero-text">
+      <h1>Cờ Tướng <span>Online</span></h1>
+      <p>Thách đấu bạn bè chỉ với một đường link, hoặc rèn luyện cùng máy với 5 cấp độ. Không cần đăng ký.</p>
+      <label class="name-field">
+        <span>Tên của bạn</span>
+        <input id="nameInput" maxlength="24" autocomplete="nickname" placeholder="Nhập tên…">
+      </label>
+    </div>
+    <div class="hero-pieces" aria-hidden="true">
+      <span class="hp r">帥</span><span class="hp b">將</span><span class="hp r">炮</span><span class="hp b">馬</span><span class="hp r">俥</span>
+    </div>
+  </section>
+
+  <div id="resumeBox" hidden></div>
+
+  <section class="cards">
+    <article class="card">
+      <div class="card-icon r">俥</div>
+      <h2>Chơi với bạn</h2>
+      <p>Tạo phòng, gửi link cho bạn bè. Người khác vào sau sẽ được xem trực tiếp.</p>
+      <div class="field">
+        <span>Thời gian mỗi bên</span>
+        <div class="seg" id="tcSeg">
+          <button data-v="0">∞</button><button data-v="5">5′</button><button data-v="10" class="on">10′</button><button data-v="15">15′</button><button data-v="30">30′</button>
+        </div>
+      </div>
+      <div class="field">
+        <span>Cộng giờ mỗi nước</span>
+        <div class="seg" id="incSeg">
+          <button data-v="0" class="on">0s</button><button data-v="3">3s</button><button data-v="5">5s</button><button data-v="10">10s</button>
+        </div>
+      </div>
+      <div class="field">
+        <span>Bạn cầm quân</span>
+        <div class="seg" id="colorSeg">
+          <button data-v="r" class="on">Đỏ</button><button data-v="b">Đen</button><button data-v="random">Ngẫu nhiên</button>
+        </div>
+      </div>
+      <button class="btn primary block" id="createBtn">Tạo phòng</button>
+    </article>
+
+    <article class="card">
+      <div class="card-icon b">馬</div>
+      <h2>Vào phòng</h2>
+      <p>Nhập mã phòng 6 ký tự mà bạn bè gửi cho bạn.</p>
+      <form id="joinForm" class="join-form">
+        <input id="codeInput" maxlength="6" placeholder="VD: K7QH2M" autocomplete="off" spellcheck="false">
+        <button class="btn primary" type="submit">Vào</button>
+      </form>
+      <div class="howto">
+        <div><b>1</b> Tạo phòng</div>
+        <div><b>2</b> Gửi link / mã</div>
+        <div><b>3</b> Bắt đầu chơi</div>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="card-icon r">炮</div>
+      <h2>Chơi với máy</h2>
+      <p>AI tìm kiếm alpha-beta chạy ngay trên trình duyệt của bạn.</p>
+      <div class="field">
+        <span>Cấp độ</span>
+        <div class="seg levels" id="levelSeg">
+          <button data-v="1">Tập chơi</button><button data-v="2">Dễ</button><button data-v="3" class="on">Vừa</button><button data-v="4">Khó</button><button data-v="5">Đại sư</button>
+        </div>
+      </div>
+      <div class="field">
+        <span>Bạn cầm quân</span>
+        <div class="seg" id="aiColorSeg">
+          <button data-v="r" class="on">Đỏ (đi trước)</button><button data-v="b">Đen</button>
+        </div>
+      </div>
+      <button class="btn primary block" id="aiBtn">Bắt đầu</button>
+    </article>
+  </section>
+  <footer class="foot">Luật: chiếu bí hoặc vây hết nước đều thắng · Lặp lại thế cờ 3 lần = hoà · Lộ mặt tướng không hợp lệ</footer>
+</main>
+
+<!-- ============ VÁN CỜ ============ -->
+<main id="game" class="view game" hidden>
+  <div class="board-col">
+    <div class="player-bar top" id="barTop"></div>
+    <div class="board-wrap">
+      <div class="board" id="board">
+        <svg class="grid" id="grid" viewBox="0 0 900 1000" preserveAspectRatio="none"></svg>
+        <div class="layer marks" id="marks"></div>
+        <div class="layer pieces" id="pieces"></div>
+        <div class="layer hints" id="hints"></div>
+        <div class="board-flash" id="flash"></div>
+      </div>
+    </div>
+    <div class="player-bar bottom" id="barBottom"></div>
+  </div>
+
+  <aside class="side">
+    <div class="panel room-panel" id="roomPanel"></div>
+    <div class="panel status-panel">
+      <div class="status" id="status"></div>
+      <div class="offer" id="offer" hidden></div>
+      <div class="controls" id="controls"></div>
+    </div>
+    <div class="panel tabs-panel">
+      <div class="tabs">
+        <button class="tab on" data-tab="moves">Nước đi</button>
+        <button class="tab" data-tab="chat" id="chatTab">Trò chuyện <i class="badge" id="chatBadge" hidden></i></button>
+      </div>
+      <div class="tab-body" data-body="moves">
+        <ol class="moves" id="moves"></ol>
+      </div>
+      <div class="tab-body" data-body="chat" hidden>
+        <div class="chat-list" id="chatList"></div>
+        <form class="chat-form" id="chatForm">
+          <input id="chatInput" maxlength="300" placeholder="Nhắn gì đó…" autocomplete="off">
+          <button class="icon-btn solid" type="submit" aria-label="Gửi" data-icon="send"></button>
+        </form>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<div class="modal" id="modal" hidden><div class="modal-card" id="modalCard"></div></div>
+<div class="toasts" id="toasts"></div>
+
+<script src="/shared/xiangqi.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
