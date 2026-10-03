@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a1310">
+<title>User Data Deletion – Cờ Tướng Online (Xiangqi Online)</title>
+<meta name="description" content="How to request deletion of your Cờ Tướng Online (Xiangqi Online) account data (Google/Facebook sign-in).">
+<link rel="canonical" href="/en/data-deletion">
+<link rel="alternate" hreflang="vi" href="/xoa-du-lieu">
+<link rel="alternate" hreflang="en" href="/en/data-deletion">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@700&text=%E5%B8%A5&display=block">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="legal-page">
+<div class="bg-deco" aria-hidden="true"></div>
+
+<header class="topbar">
+  <a class="brand" href="/">
+    <span class="brand-mark">帥</span>
+    <span class="brand-text">Xiangqi<small>online</small></span>
+  </a>
+  <div class="topbar-actions"><a class="btn ghost legal-home" href="/">← Back to lobby</a></div>
+</header>
+
+<main class="legal">
+  <article class="legal-card">
+    <h1>User Data Deletion</h1>
+    <p class="legal-meta">Last updated: October 3, 2026 · <a href="/xoa-du-lieu" hreflang="vi" lang="vi">Tiếng Việt</a></p>
+
+    <p>If you signed in to Cờ Tướng Online (Xiangqi Online) with Google or Facebook, we store: the provider, the provider’s account identifier, your display name, profile picture URL, creation date, Win/Loss/Draw statistics, Elo ratings, the private messages you sent / received and your block list (details in the <a href="/en/privacy">Privacy Policy</a>). Guests who never signed in have no data to delete in our database.</p>
+
+    <h2>How to request deletion</h2>
+    <ol class="legal-steps">
+      <li>Send an email to <a href="mailto:huydinhvn1@gmail.com">huydinhvn1@gmail.com</a> with the subject <b>“Cờ Tướng Online data deletion”</b>.</li>
+      <li>In the email, include your in-game <b>display name</b>, whether you signed in with <b>Google or Facebook</b>, and your <b>account ID</b> if available (shown in the box below while you are signed in).</li>
+      <li>We will delete all of your account data (name, avatar, identifiers, statistics, private messages, block list) from our database within <b>30 days</b> and confirm by email.</li>
+    </ol>
+    <div class="legal-box" id="myAccount" hidden></div>
+
+    <h2>Revoking the app’s access</h2>
+    <ul>
+      <li><b>Facebook:</b> Settings &amp; privacy → Settings → <b>Apps and websites</b> → choose “Cờ Tướng Online” → <b>Remove</b>.</li>
+      <li><b>Google:</b> go to <a href="https://myaccount.google.com/connections" rel="noopener">myaccount.google.com/connections</a> → choose “Cờ Tướng Online” → <b>Delete all connections</b>.</li>
+    </ul>
+    <p>Removing the app only stops sharing your profile from then on; to delete data that is already stored, send the email described above.</p>
+
+    <h2>Data on your device</h2>
+    <p>Click “Sign out” in the lobby to delete the sign-in cookie. To remove the settings saved in your browser (the name you typed, sound, language, games against the computer…), clear this site’s data in your browser settings.</p>
+  </article>
+  <nav class="legal-nav" aria-label="Legal pages"><a href="/en/privacy">Privacy Policy</a><a href="/en/terms">Terms of Use</a><a href="/en/data-deletion" aria-current="page">Data Deletion</a><a href="/">Home</a></nav>
+</main>
+<script>
+(function () {
+  // When signed in: show the account ID and a pre-filled email link
+  if (!window.fetch) return;
+  fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+    var u = d && d.user; if (!u) return;
+    var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+    var prov = u.provider === 'facebook' ? 'Facebook' : 'Google';
+    var body = 'Display name: ' + u.name + '\nSigned in with: ' + prov + '\nAccount ID: ' + u.id + '\n\nI would like all of my Cờ Tướng Online account data to be deleted.';
+    var href = 'mailto:huydinhvn1@gmail.com?subject=' + encodeURIComponent('Cờ Tướng Online data deletion') + '&body=' + encodeURIComponent(body);
+    var box = document.getElementById('myAccount');
+    box.innerHTML = '<p>You are signed in as <b>' + esc(u.name) + '</b> (' + prov + ')<br>Account ID: <code>' + esc(u.id) + '</code></p>' +
+      '<a class="btn primary" href="' + esc(href) + '">Write the deletion request email</a>';
+    box.hidden = false;
+  }).catch(function () { });
+})();
+</script>
+</body>
+</html>

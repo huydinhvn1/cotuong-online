@@ -26,6 +26,8 @@ app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] })
 // Trang pháp lý (cần cho màn hình xác thực OAuth của Google/Facebook) + bí danh tiếng Anh
 const LEGAL = { '/privacy': 'chinh-sach-bao-mat', '/privacy-policy': 'chinh-sach-bao-mat', '/terms': 'dieu-khoan', '/data-deletion': 'xoa-du-lieu' };
 for (const [alias, page] of Object.entries(LEGAL)) app.get(alias, (req, res) => res.sendFile(path.join(__dirname, 'public', page + '.html')));
+// Bản tiếng Anh đầy đủ: /en/privacy, /en/terms, /en/data-deletion (file tĩnh public/en/*.html; thêm bí danh /en/privacy-policy)
+app.get('/en/privacy-policy', (req, res) => res.sendFile(path.join(__dirname, 'public', 'en', 'privacy.html')));
 app.use('/shared', express.static(path.join(__dirname, 'shared')));
 app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size, queue: mm.size, presence: presence(), uptime: process.uptime() | 0 }));
 app.get('/r/:id', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
@@ -53,7 +55,7 @@ app.get('/api/messages', api(async (req, res) => {
   const [convs, blocked, unread] = await Promise.all([store.listConversations(me.id), store.listBlocked(me.id), store.unreadCount(me.id)]);
   const peers = await Promise.all(convs.map(c => store.getUser(c.peer)));
   const bl = new Set(blocked);
-  res.json({ unread, blocked, conversations: convs.map((c, i) => ({ peer: miniProfile(peers[i]) || { id: c.peer, name: 'Người chơi đã xoá', avatar: '' }, last: c.last, unread: c.unread, blocked: bl.has(c.peer) })) });
+  res.json({ unread, blocked, conversations: convs.map((c, i) => ({ peer: miniProfile(peers[i]) || { id: c.peer, name: 'Người chơi đã xoá', avatar: '', deleted: true }, last: c.last, unread: c.unread, blocked: bl.has(c.peer) })) });
 }));
 app.get('/api/messages/:peer', api(async (req, res) => {
   const me = await meOr401(req, res); if (!me) return;
@@ -167,7 +169,9 @@ function pushUnread(uid) {
   store.unreadCount(uid).then(n => { for (const c of wss.clients) if (c.userId === uid) send(c, { type: 'dm_unread', count: n }); }, () => { });
 }
 function broadcast(room) { room.lastActive = Date.now(); for (const c of room.clients) send(c, snapshot(room, c)); }
-function notify(room, text, except) { for (const c of room.clients) if (c !== except) send(c, { type: 'toast', text }); }
+// Thông báo trong phòng: text tiếng Việt (tương thích client cũ) + key/params để client dịch theo ngôn ngữ của người xem
+function notify(room, text, except, key, params) { for (const c of room.clients) if (c !== except) send(c, key ? { type: 'toast', text, key, params } : { type: 'toast', text }); }
+const errMsg = (code, text, extra) => ({ type: 'error', code, key: 'err.' + code, text, ...extra });
 
 function finish(room, winner, reason) {
   if (room.timeControl && room.status === 'playing') room.clocks = liveClocks(room);
@@ -297,8 +301,8 @@ function joinRoom(ws, room) {
     const free = !room.seats.r ? 'r' : !room.seats.b ? 'b' : null;
     if (free && room.status !== 'over') {
       room.seats[free] = { token: ws.token, name: ws.name, uid: ws.userId || null };
-      notify(room, `${ws.name} đã vào phòng (${free === 'r' ? 'quân Đỏ' : 'quân Đen'})`, ws);
-    } else notify(room, `${ws.name} vào xem`, ws);
+      notify(room, `${ws.name} đã vào phòng (${free === 'r' ? 'quân Đỏ' : 'quân Đen'})`, ws, 'ts.joined', { name: ws.name, color: free });
+    } else notify(room, `${ws.name} vào xem`, ws, 'ts.watch', { name: ws.name });
   } else {
     const seat = room.seats[seatOf(room, ws.token)];
     seat.name = ws.name; seat.uid = ws.userId || null;
@@ -332,7 +336,7 @@ const handlers = {
   },
   // Tin nhắn riêng: chỉ giữa hai người đã đăng nhập; tối đa MSG_MAX ký tự; giới hạn DM_RATE tin / DM_WINDOW_MS; tôn trọng danh sách chặn
   async dm_send(ws, m) {
-    const fail = (code, text) => send(ws, { type: 'dm_error', cid: m.cid, code, text });
+    const fail = (code, text) => send(ws, { type: 'dm_error', cid: m.cid, code, key: 'dme.' + code, text, max: MSG_MAX });
     if (!ws.userId) return fail('login', 'Đăng nhập để nhắn tin.');
     if (!ws.sameOrigin) return fail('origin', 'Không gửi được tin nhắn.');
     const to = clean(m.to, 64), raw = String(m.body == null ? '' : m.body);
@@ -372,16 +376,16 @@ const handlers = {
   },
   join(ws, m) {
     const room = rooms.get(clean(m.roomId, 12).toUpperCase());
-    if (!room) return send(ws, { type: 'error', code: 'no_room', text: 'Không tìm thấy phòng. Có thể phòng đã hết hạn.' });
+    if (!room) return send(ws, errMsg('no_room', 'Không tìm thấy phòng. Có thể phòng đã hết hạn.'));
     mmCancel(ws);
     joinRoom(ws, room);
   },
   leave(ws) { leaveRoom(ws); },
   async mm_join(ws, m) {
-    if (!ws.userId) return send(ws, { type: 'error', code: 'mm_login', text: 'Đăng nhập để tìm đối thủ tự động.' });
+    if (!ws.userId) return send(ws, errMsg('mm_login', 'Đăng nhập để tìm đối thủ tự động.'));
     const variant = VARIANTS.has(m.variant) ? m.variant : 'standard';
     const u = await store.getUser(ws.userId);
-    if (!u) return send(ws, { type: 'error', code: 'mm_login', text: 'Đăng nhập để tìm đối thủ tự động.' });
+    if (!u) return send(ws, errMsg('mm_login', 'Đăng nhập để tìm đối thủ tự động.'));
     if (ws.readyState !== 1) return;
     ws.user = u;
     // cùng một tài khoản chỉ được tìm ở một nơi: huỷ lượt tìm ở thẻ/thiết bị khác
@@ -395,7 +399,7 @@ const handlers = {
     const c = m.color === 'b' ? 'b' : 'r';
     if (room.seats[c] || seatOf(room, ws.token) || room.status === 'playing') return;
     room.seats[c] = { token: ws.token, name: ws.name, uid: ws.userId || null };
-    notify(room, `${ws.name} ngồi vào ${c === 'r' ? 'quân Đỏ' : 'quân Đen'}`, ws);
+    notify(room, `${ws.name} ngồi vào ${c === 'r' ? 'quân Đỏ' : 'quân Đen'}`, ws, 'ts.sat', { name: ws.name, color: c });
     startIfReady(room); broadcast(room);
   },
   stand(ws, m, room) {
@@ -405,19 +409,19 @@ const handlers = {
   },
   move(ws, m, room) {
     const c = seatOf(room, ws.token);
-    if (room.status !== 'playing') return send(ws, { type: 'error', text: 'Ván cờ chưa bắt đầu hoặc đã kết thúc.' });
-    if (c !== room.game.turn) return send(ws, { type: 'error', text: 'Chưa đến lượt bạn.' });
+    if (room.status !== 'playing') return send(ws, errMsg('not_playing', 'Ván cờ chưa bắt đầu hoặc đã kết thúc.'));
+    if (c !== room.game.turn) return send(ws, errMsg('not_your_turn', 'Chưa đến lượt bạn.'));
     // kiểm tra trước khi trừ giờ; luật cấm chiếu dai áp dụng cho cả ván online
     const err = room.game.moveError(m.from, m.to);
-    if (err === 'perpetual') { send(ws, { type: 'error', text: X.PERPETUAL_MSG }); return broadcast(room); }
-    if (err) { send(ws, { type: 'error', text: 'Nước đi không hợp lệ.' }); return broadcast(room); }
+    if (err === 'perpetual') { send(ws, errMsg('perpetual', X.PERPETUAL_MSG)); return broadcast(room); }
+    if (err) { send(ws, errMsg('invalid_move', 'Nước đi không hợp lệ.')); return broadcast(room); }
     const now = Date.now();
     if (room.timeControl && room.game.history.length > 0) {
       room.clocks[c] -= now - room.turnStart;
       if (room.clocks[c] <= 0) { room.clocks[c] = 0; finish(room, X.other(c), 'timeout'); return broadcast(room); }
     }
     const rec = room.game.move(m.from, m.to);
-    if (!rec) { send(ws, { type: 'error', text: 'Nước đi không hợp lệ.' }); return broadcast(room); }
+    if (!rec) { send(ws, errMsg('invalid_move', 'Nước đi không hợp lệ.')); return broadcast(room); }
     if (room.timeControl && room.game.history.length > 1) room.clocks[c] += room.timeControl.inc;
     room.turnStart = now; room.pending = null;
     const st = room.game.status();
@@ -427,7 +431,7 @@ const handlers = {
   undo_request(ws, m, room) {
     const c = seatOf(room, ws.token);
     if (!c || room.status !== 'playing' || room.pending) return;
-    if (!room.game.history.some(h => h.side === c)) return send(ws, { type: 'error', text: 'Bạn chưa đi nước nào để xin đi lại.' });
+    if (!room.game.history.some(h => h.side === c)) return send(ws, errMsg('no_undo', 'Bạn chưa đi nước nào để xin đi lại.'));
     room.pending = { type: 'undo', by: c }; broadcast(room);
   },
   draw_offer(ws, m, room) {
@@ -449,7 +453,7 @@ const handlers = {
     const who = room.seats[c].name;
     if (!m.accept) {
       const label = { undo: 'xin đi lại', draw: 'cầu hoà', rematch: 'chơi ván mới' }[p.type];
-      notify(room, `${who} từ chối ${label}.`);
+      notify(room, `${who} từ chối ${label}.`, null, 'ts.declined', { name: who, what: p.type });
       return broadcast(room);
     }
     if (p.type === 'undo' && room.status === 'playing') {
@@ -458,11 +462,11 @@ const handlers = {
       g.undo();
       if (last.side !== p.by && g.history.length) g.undo();
       room.turnStart = Date.now();
-      notify(room, 'Đã đồng ý cho đi lại.');
+      notify(room, 'Đã đồng ý cho đi lại.', null, 'ts.undone');
     } else if (p.type === 'draw' && room.status === 'playing') {
       finish(room, null, 'agreement');
     } else if (p.type === 'rematch') {
-      newGame(room); notify(room, 'Ván mới bắt đầu – hai bên đã đổi màu quân.');
+      newGame(room); notify(room, 'Ván mới bắt đầu – hai bên đã đổi màu quân.', null, 'ts.rematch');
     }
     broadcast(room);
   },
@@ -497,7 +501,7 @@ wss.on('connection', (ws, req) => {
 function onMessage(ws, data) {
   let m; try { m = JSON.parse(data); } catch { return; }
   if (!m || typeof m.type !== 'string' || !handlers.hasOwnProperty(m.type)) return;
-  if (m.type !== 'hello' && !ws.token) return send(ws, { type: 'error', text: 'Chưa xác thực.' });
+  if (m.type !== 'hello' && !ws.token) return send(ws, errMsg('unauth', 'Chưa xác thực.'));
   if (NEEDS_ROOM.has(m.type) && !ws.room) return;
   try { return Promise.resolve(handlers[m.type](ws, m, ws.room)).catch(e => console.error('handler error', m.type, e)).finally(schedulePresence); }
   catch (e) { console.error('handler error', m.type, e); }
@@ -522,7 +526,7 @@ function checkAbandon(room) {
     if (!st || online(room, st.token)) { delete room.away[c]; continue; }
     if (!room.away[c]) {
       room.away[c] = now;
-      notify(room, `${st.name} mất kết nối – nếu không quay lại trong ${Math.round(ABANDON_MS / 1000)} giây sẽ bị xử thua.`);
+      notify(room, `${st.name} mất kết nối – nếu không quay lại trong ${Math.round(ABANDON_MS / 1000)} giây sẽ bị xử thua.`, null, 'ts.away', { name: st.name, sec: Math.round(ABANDON_MS / 1000) });
     } else if (now - room.away[c] >= ABANDON_MS) {
       if (room.game.history.length < 2) finish(room, null, 'aborted'); else finish(room, X.other(c), 'abandon');
       room.away = {}; broadcast(room); return;

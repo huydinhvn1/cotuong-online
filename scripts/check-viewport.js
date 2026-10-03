@@ -58,7 +58,7 @@ const ENGINES = (process.env.ENGINES || 'chromium,webkit').split(',');
     const browser = await pw[eng].launch(eng === 'chromium' ? { executablePath: process.env.CHROME || undefined, args: ['--no-sandbox'] } : {});
     for (const [w, h] of SIZES) {
       const tag = `${eng} ${w}x${h}`, file = `${eng}-${w}x${h}`;
-      const mk = () => browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+      const mk = () => browser.newContext({ locale: 'vi-VN', viewport: { width: w, height: h }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
       const ctx = await mk(), p = await ctx.newPage(); p.on('pageerror', e => pageErrors.push(tag + ': ' + e.message));
       // ---- Phòng online: 2 người, link mời dài, chat ----
       await p.goto(ONLINE, { timeout: 45000 }); await p.waitForTimeout(600);

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1a1310">
 <title>Cờ Tướng Online</title>
+<script src="/i18n.js"></script>
 <meta name="description" content="Chơi cờ tướng online với bạn bè hoặc với máy – miễn phí, không cần cài đặt.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,14 +20,15 @@
 <header class="topbar">
   <a class="brand" href="/" data-nav="home">
     <span class="brand-mark">帥</span>
-    <span class="brand-text">Cờ Tướng<small>online</small></span>
+    <span class="brand-text" data-i18n-html="brand">Cờ Tướng<small>online</small></span>
   </a>
   <span class="vbadge" id="variantBadge" hidden></span>
   <div class="topbar-actions">
-    <span class="conn" id="conn" hidden><i></i><span>Đang kết nối…</span></span>
-    <button class="donate-btn" type="button" data-act="donate" title="Ủng hộ tác giả" aria-label="Ủng hộ tác giả"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4 7 4c2.1 0 3.6 1.1 5 2.9C13.4 5.1 14.9 4 17 4c4 0 6.1 4.2 4.6 7.7C19.5 16.4 12 21 12 21z"/></svg><span>Ủng hộ</span></button>
-    <button class="icon-btn inbox-btn" id="inboxBtn" type="button" data-act="inbox" title="Tin nhắn" aria-label="Tin nhắn" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg><i class="badge" id="inboxBadge" hidden></i></button>
-    <button class="icon-btn" id="soundBtn" title="Âm thanh" aria-label="Bật/tắt âm thanh"></button>
+    <span class="conn" id="conn" hidden><i></i><span data-i18n="conn.connecting">Đang kết nối…</span></span>
+    <button class="donate-btn" type="button" data-act="donate" title="Ủng hộ tác giả" aria-label="Ủng hộ tác giả" data-i18n-attr="title:donate.aria;aria-label:donate.aria"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4 7 4c2.1 0 3.6 1.1 5 2.9C13.4 5.1 14.9 4 17 4c4 0 6.1 4.2 4.6 7.7C19.5 16.4 12 21 12 21z"/></svg><span data-i18n="donate.btn">Ủng hộ</span></button>
+    <button class="icon-btn inbox-btn" id="inboxBtn" type="button" data-act="inbox" title="Tin nhắn" aria-label="Tin nhắn" data-i18n-attr="title:inbox" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg><i class="badge" id="inboxBadge" hidden></i></button>
+    <button class="icon-btn lang-btn" id="langBtn" type="button" aria-label="Ngôn ngữ: Tiếng Việt – chuyển sang English" data-i18n-attr="aria-label:lang.aria;title:lang.aria"><span data-i18n="lang.btn">VI</span></button>
+    <button class="icon-btn" id="soundBtn" title="Âm thanh" aria-label="Bật/tắt âm thanh" data-i18n-attr="title:sound.title;aria-label:sound.aria"></button>
   </div>
 </header>
 
@@ -34,13 +36,13 @@
 <main id="lobby" class="view lobby">
   <section class="hero">
     <div class="hero-text">
-      <h1>Cờ Tướng <span>Online</span></h1>
-      <p>Thách đấu bạn bè chỉ với một đường link, hoặc rèn luyện cùng máy với 5 cấp độ. Không cần đăng ký.</p>
+      <h1 data-i18n-html="hero.h1">Cờ Tướng <span>Online</span></h1>
+      <p data-i18n="hero.lead">Thách đấu bạn bè chỉ với một đường link, hoặc rèn luyện cùng máy với 5 cấp độ. Không cần đăng ký.</p>
       <!-- Tài khoản (chỉ hiện khi server bật đăng nhập Google/Facebook) -->
       <div class="account" id="account" hidden></div>
       <label class="name-field" id="nameField">
-        <span>Tên của bạn</span>
-        <input id="nameInput" maxlength="24" autocomplete="nickname" placeholder="Nhập tên…">
+        <span data-i18n="name.label">Tên của bạn</span>
+        <input id="nameInput" maxlength="24" autocomplete="nickname" placeholder="Nhập tên…" data-i18n-attr="placeholder:name.ph">
       </label>
     </div>
     <div class="hero-pieces" aria-hidden="true">
@@ -49,13 +51,13 @@
   </section>
 
   <!-- Đang trực tuyến: số liệu thời gian thực do server đẩy qua WebSocket -->
-  <section class="live" id="livePanel" hidden aria-label="Đang trực tuyến">
-    <div class="live-head"><i class="live-dot" aria-hidden="true"></i>Đang trực tuyến</div>
+  <section class="live" id="livePanel" hidden aria-label="Đang trực tuyến" data-i18n-attr="aria-label:live.title">
+    <div class="live-head"><i class="live-dot" aria-hidden="true"></i><span data-i18n="live.title">Đang trực tuyến</span></div>
     <div class="live-stats">
-      <div class="live-stat"><b id="lvUsers">0</b><span>thành viên</span></div>
-      <div class="live-stat"><b id="lvGuests">0</b><span>khách</span></div>
-      <div class="live-var std" aria-label="Cờ tướng"><div class="live-var-h"><i aria-hidden="true">帥</i>Cờ tướng</div><div class="live-var-n"><span><b id="lvPlayStd">0</b> ván đang chơi</span><span><b id="lvSearchStd">0</b> đang tìm trận</span></div></div>
-      <div class="live-var jq" aria-label="Cờ úp"><div class="live-var-h"><i aria-hidden="true">?</i>Cờ úp</div><div class="live-var-n"><span><b id="lvPlayJq">0</b> ván đang chơi</span><span><b id="lvSearchJq">0</b> đang tìm trận</span></div></div>
+      <div class="live-stat"><b id="lvUsers">0</b><span data-i18n="live.members">thành viên</span></div>
+      <div class="live-stat"><b id="lvGuests">0</b><span data-i18n="live.guests">khách</span></div>
+      <div class="live-var std" aria-label="Cờ tướng" data-i18n-attr="aria-label:v.standard"><div class="live-var-h"><i aria-hidden="true">帥</i><span data-i18n="v.standard">Cờ tướng</span></div><div class="live-var-n"><span><b id="lvPlayStd">0</b> <span data-i18n="live.playing">ván đang chơi</span></span><span><b id="lvSearchStd">0</b> <span data-i18n="live.searching">đang tìm trận</span></span></div></div>
+      <div class="live-var jq" aria-label="Cờ úp" data-i18n-attr="aria-label:v.jieqi"><div class="live-var-h"><i aria-hidden="true">?</i><span data-i18n="v.jieqi">Cờ úp</span></div><div class="live-var-n"><span><b id="lvPlayJq">0</b> <span data-i18n="live.playing">ván đang chơi</span></span><span><b id="lvSearchJq">0</b> <span data-i18n="live.searching">đang tìm trận</span></span></div></div>
     </div>
   </section>
 
@@ -65,94 +67,94 @@
   <section class="quick" id="quickMatch" hidden aria-labelledby="quickTitle">
     <div class="card-icon b quick-icon" aria-hidden="true">將</div>
     <div class="quick-text">
-      <h2 id="quickTitle">Tìm đối thủ tự động</h2>
-      <p>Ghép với người chơi cùng trình độ · ván xếp hạng Elo · 10 phút + 5 giây mỗi nước</p>
+      <h2 id="quickTitle" data-i18n="quick.title">Tìm đối thủ tự động</h2>
+      <p data-i18n="quick.desc">Ghép với người chơi cùng trình độ · ván xếp hạng Elo · 10 phút + 5 giây mỗi nước</p>
     </div>
     <div class="quick-ctl" id="mmIdle">
-      <div class="seg" id="mmVariantSeg"><button data-v="standard" class="on">Cờ tướng</button><button data-v="jieqi">Cờ úp</button></div>
-      <button class="btn primary" id="mmBtn" type="button">Tìm đối thủ</button>
+      <div class="seg" id="mmVariantSeg"><button data-v="standard" class="on" data-i18n="v.standard">Cờ tướng</button><button data-v="jieqi" data-i18n="v.jieqiLong">Cờ úp</button></div>
+      <button class="btn primary" id="mmBtn" type="button" data-i18n="mm.find">Tìm đối thủ</button>
       <div class="quick-note" id="mmNote"></div>
     </div>
     <div class="quick-ctl searching" id="mmSearching" hidden aria-live="polite">
-      <div class="mm-wait"><span class="spinner" aria-hidden="true"></span><div class="mm-wait-text"><b>Đang tìm đối thủ…</b><span id="mmInfo"></span></div><span class="mm-time" id="mmTime">0:00</span></div>
-      <button class="btn" id="mmCancel" type="button">Huỷ tìm</button>
+      <div class="mm-wait"><span class="spinner" aria-hidden="true"></span><div class="mm-wait-text"><b data-i18n="mm.searching">Đang tìm đối thủ…</b><span id="mmInfo"></span></div><span class="mm-time" id="mmTime">0:00</span></div>
+      <button class="btn" id="mmCancel" type="button" data-i18n="mm.cancel">Huỷ tìm</button>
     </div>
   </section>
 
   <section class="cards">
     <article class="card">
       <div class="card-icon r">俥</div>
-      <h2>Chơi với bạn</h2>
-      <p>Tạo phòng, gửi link cho bạn bè. Người khác vào sau sẽ được xem trực tiếp.</p>
+      <h2 data-i18n="card.friend.h">Chơi với bạn</h2>
+      <p data-i18n="card.friend.p">Tạo phòng, gửi link cho bạn bè. Người khác vào sau sẽ được xem trực tiếp.</p>
       <div class="field">
-        <span class="field-head">Kiểu cờ <button type="button" class="help-link" data-act="jqrules">Luật cờ úp?</button></span>
+        <span class="field-head"><span data-i18n="f.variant">Kiểu cờ</span> <button type="button" class="help-link" data-act="jqrules" data-i18n="f.jqhelp">Luật cờ úp?</button></span>
         <div class="seg" id="variantSeg">
-          <button data-v="standard" class="on">Cờ tướng</button><button data-v="jieqi">Cờ úp</button>
+          <button data-v="standard" class="on" data-i18n="v.standard">Cờ tướng</button><button data-v="jieqi" data-i18n="v.jieqiLong">Cờ úp</button>
         </div>
       </div>
       <div class="field">
-        <span>Thời gian mỗi bên</span>
+        <span data-i18n="f.time">Thời gian mỗi bên</span>
         <div class="seg" id="tcSeg">
           <button data-v="0">∞</button><button data-v="5">5′</button><button data-v="10" class="on">10′</button><button data-v="15">15′</button><button data-v="30">30′</button>
         </div>
       </div>
       <div class="field">
-        <span>Cộng giờ mỗi nước</span>
+        <span data-i18n="f.inc">Cộng giờ mỗi nước</span>
         <div class="seg" id="incSeg">
           <button data-v="0" class="on">0s</button><button data-v="3">3s</button><button data-v="5">5s</button><button data-v="10">10s</button>
         </div>
       </div>
       <div class="field">
-        <span>Bạn cầm quân</span>
+        <span data-i18n="f.color">Bạn cầm quân</span>
         <div class="seg" id="colorSeg">
-          <button data-v="r" class="on">Đỏ</button><button data-v="b">Đen</button><button data-v="random">Ngẫu nhiên</button>
+          <button data-v="r" class="on" data-i18n="side.r">Đỏ</button><button data-v="b" data-i18n="side.b">Đen</button><button data-v="random" data-i18n="side.random">Ngẫu nhiên</button>
         </div>
       </div>
-      <button class="btn primary block" id="createBtn">Tạo phòng</button>
+      <button class="btn primary block" id="createBtn" data-i18n="btn.create">Tạo phòng</button>
     </article>
 
     <article class="card">
       <div class="card-icon b">馬</div>
-      <h2>Vào phòng</h2>
-      <p>Nhập mã phòng 6 ký tự mà bạn bè gửi cho bạn.</p>
+      <h2 data-i18n="card.join.h">Vào phòng</h2>
+      <p data-i18n="card.join.p">Nhập mã phòng 6 ký tự mà bạn bè gửi cho bạn.</p>
       <form id="joinForm" class="join-form">
         <input id="codeInput" maxlength="6" placeholder="XXXXXX" autocomplete="off" spellcheck="false">
-        <button class="btn primary" type="submit">Vào</button>
+        <button class="btn primary" type="submit" data-i18n="btn.join">Vào</button>
       </form>
       <div class="howto">
-        <div><b>1</b> Tạo phòng</div>
-        <div><b>2</b> Gửi link / mã</div>
-        <div><b>3</b> Bắt đầu chơi</div>
+        <div><b>1</b> <span data-i18n="howto.1">Tạo phòng</span></div>
+        <div><b>2</b> <span data-i18n="howto.2">Gửi link / mã</span></div>
+        <div><b>3</b> <span data-i18n="howto.3">Bắt đầu chơi</span></div>
       </div>
     </article>
 
     <article class="card">
       <div class="card-icon r">炮</div>
-      <h2>Chơi với máy</h2>
-      <p>AI tìm kiếm alpha-beta chạy ngay trên trình duyệt của bạn.</p>
+      <h2 data-i18n="card.ai.h">Chơi với máy</h2>
+      <p data-i18n="card.ai.p">AI tìm kiếm alpha-beta chạy ngay trên trình duyệt của bạn.</p>
       <div class="field">
-        <span class="field-head">Kiểu cờ <button type="button" class="help-link" data-act="jqrules">Luật cờ úp?</button></span>
+        <span class="field-head"><span data-i18n="f.variant">Kiểu cờ</span> <button type="button" class="help-link" data-act="jqrules" data-i18n="f.jqhelp">Luật cờ úp?</button></span>
         <div class="seg" id="aiVariantSeg">
-          <button data-v="standard" class="on">Cờ tướng</button><button data-v="jieqi">Cờ úp</button>
+          <button data-v="standard" class="on" data-i18n="v.standard">Cờ tướng</button><button data-v="jieqi" data-i18n="v.jieqiLong">Cờ úp</button>
         </div>
       </div>
       <div class="field">
-        <span>Cấp độ</span>
+        <span data-i18n="f.level">Cấp độ</span>
         <div class="seg levels" id="levelSeg">
-          <button data-v="1">Tập chơi</button><button data-v="2">Dễ</button><button data-v="3" class="on">Vừa</button><button data-v="4">Khó</button><button data-v="5">Đại sư</button>
+          <button data-v="1" data-i18n="lv.1">Tập chơi</button><button data-v="2" data-i18n="lv.2">Dễ</button><button data-v="3" class="on" data-i18n="lv.3">Vừa</button><button data-v="4" data-i18n="lv.4">Khó</button><button data-v="5" data-i18n="lv.5">Đại sư</button>
         </div>
       </div>
       <div class="field">
-        <span>Bạn cầm quân</span>
+        <span data-i18n="f.color">Bạn cầm quân</span>
         <div class="seg" id="aiColorSeg">
-          <button data-v="r" class="on">Đỏ (đi trước)</button><button data-v="b">Đen</button>
+          <button data-v="r" class="on" data-i18n="side.rFirst">Đỏ (đi trước)</button><button data-v="b" data-i18n="side.b">Đen</button>
         </div>
       </div>
-      <button class="btn primary block" id="aiBtn">Bắt đầu</button>
+      <button class="btn primary block" id="aiBtn" data-i18n="btn.start">Bắt đầu</button>
     </article>
   </section>
-  <footer class="foot">Luật: chiếu bí hoặc vây hết nước đều thắng · Lặp lại thế cờ 3 lần = hoà · Lộ mặt tướng không hợp lệ
-    <nav class="foot-links" aria-label="Thông tin pháp lý"><a href="/chinh-sach-bao-mat">Chính sách bảo mật</a><a href="/dieu-khoan">Điều khoản sử dụng</a><a href="/xoa-du-lieu">Xoá dữ liệu</a><button class="foot-donate" type="button" data-act="donate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4 7 4c2.1 0 3.6 1.1 5 2.9C13.4 5.1 14.9 4 17 4c4 0 6.1 4.2 4.6 7.7C19.5 16.4 12 21 12 21z"/></svg>Ủng hộ tác giả</button></nav>
+  <footer class="foot"><span data-i18n="foot.rules">Luật: chiếu bí hoặc vây hết nước đều thắng · Lặp lại thế cờ 3 lần = hoà · Lộ mặt tướng không hợp lệ</span>
+    <nav class="foot-links" aria-label="Thông tin pháp lý" data-i18n-attr="aria-label:foot.legal"><a href="/chinh-sach-bao-mat" data-href-en="/en/privacy" data-i18n="foot.privacy">Chính sách bảo mật</a><a href="/dieu-khoan" data-href-en="/en/terms" data-i18n="foot.terms">Điều khoản sử dụng</a><a href="/xoa-du-lieu" data-href-en="/en/data-deletion" data-i18n="foot.deletion">Xoá dữ liệu</a><button class="foot-donate" type="button" data-act="donate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4 7 4c2.1 0 3.6 1.1 5 2.9C13.4 5.1 14.9 4 17 4c4 0 6.1 4.2 4.6 7.7C19.5 16.4 12 21 12 21z"/></svg><span data-i18n="foot.donate">Ủng hộ tác giả</span></button></nav>
   </footer>
 </main>
 
@@ -181,17 +183,18 @@
     <div class="panel room-panel" id="roomPanel"></div>
     <div class="panel tabs-panel">
       <div class="tabs">
-        <button class="tab on" data-tab="moves">Nước đi</button>
-        <button class="tab" data-tab="chat" id="chatTab">Trò chuyện<i class="badge" id="chatBadge" hidden></i></button>
+        <button class="tab on" data-tab="moves" data-i18n="tab.moves">Nước đi</button>
+        <button class="tab" data-tab="chat" id="chatTab"><span data-i18n="tab.chat">Trò chuyện</span><i class="badge" id="chatBadge" hidden></i></button>
       </div>
       <div class="tab-body" data-body="moves">
         <ol class="moves" id="moves"></ol>
+        <p class="moves-legend" data-i18n="moves.legend">Tg Tướng · S Sĩ · T Tượng · M Mã · X Xe · P Pháo · B Tốt · “.” tiến · “/” lui · “-” bình · t/g/s quân trước/giữa/sau</p>
       </div>
       <div class="tab-body" data-body="chat" hidden>
         <div class="chat-list" id="chatList"></div>
         <form class="chat-form" id="chatForm">
-          <input id="chatInput" maxlength="300" placeholder="Nhắn gì đó…" autocomplete="off">
-          <button class="icon-btn solid" type="submit" aria-label="Gửi" data-icon="send"></button>
+          <input id="chatInput" maxlength="300" placeholder="Nhắn gì đó…" autocomplete="off" data-i18n-attr="placeholder:chat.ph">
+          <button class="icon-btn solid" type="submit" aria-label="Gửi" data-icon="send" data-i18n-attr="aria-label:send"></button>
         </form>
       </div>
     </div>
@@ -203,14 +206,14 @@
 
 <!-- Thông báo tin nhắn mới -->
 <div class="chat-toast" id="chatToast" role="status" aria-live="polite" hidden>
-  <button class="ct-main" id="chatToastBtn" type="button" aria-label="Mở trò chuyện">
+  <button class="ct-main" id="chatToastBtn" type="button" aria-label="Mở trò chuyện" data-i18n-attr="aria-label:ct.open">
     <span class="avatar" id="ctAvatar"></span>
     <span class="ct-text"><b id="ctName"></b><span id="ctMsg"></span></span>
     <span class="ct-count" id="ctCount" hidden></span>
   </button>
-  <button class="ct-close" id="chatToastClose" type="button" aria-label="Đóng thông báo">×</button>
+  <button class="ct-close" id="chatToastClose" type="button" aria-label="Đóng thông báo" data-i18n-attr="aria-label:ct.close">×</button>
 </div>
-<button class="chat-fab" id="chatFab" type="button" aria-label="Trò chuyện" aria-hidden="true" tabindex="-1"><i class="badge" id="fabBadge" hidden></i></button>
+<button class="chat-fab" id="chatFab" type="button" aria-label="Trò chuyện" data-i18n-attr="aria-label:tab.chat" aria-hidden="true" tabindex="-1"><i class="badge" id="fabBadge" hidden></i></button>
 
 <script src="/shared/xiangqi.js"></script>
 <script src="/app.js"></script>

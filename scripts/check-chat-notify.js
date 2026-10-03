@@ -20,7 +20,7 @@ function ok(cond, msg) { checks++; if (!cond) fails++; console.log((cond ? 'PASS
     for (const eng of ENGINES) {
       const browser = await pw[eng].launch(eng === 'chromium' ? { executablePath: process.env.CHROME || undefined, args: ['--no-sandbox'] } : {});
       const mk = async (tag) => {
-        const ctx = await browser.newContext({ viewport: { width: 430, height: 932 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+        const ctx = await browser.newContext({ locale: 'vi-VN', viewport: { width: 430, height: 932 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
         await ctx.addInitScript(() => { window.__vib = []; navigator.vibrate = function (x) { window.__vib.push(x); return true; }; });
         const p = await ctx.newPage(); p.on('pageerror', e => pageErrors.push(eng + ' ' + tag + ': ' + e.message)); return p;
       };

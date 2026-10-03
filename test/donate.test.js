@@ -10,20 +10,22 @@ const ROOT = path.join(__dirname, '..');
 const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
 test('Ủng hộ qua Zelle: chỉ mã QR + người nhận, không email / số điện thoại / nút sao chép', () => {
-  const app = read('public/app.js');
+  const app = read('public/app.js') + '\n' + read('public/i18n.js'); // chuỗi hiển thị nằm trong từ điển song ngữ
   assert.match(app, /qr: '\/zelle-qr\.png'/);
   assert.match(app, /name: 'HUY DINH'/);
   assert.match(app, /Ủng hộ tác giả qua Zelle/);
   assert.match(app, /Mở app ngân hàng → Zelle → quét mã QR/);
   assert.match(app, /tài khoản ngân hàng tại Mỹ/);
+  assert.match(app, /Support the author via Zelle/);
+  assert.match(app, /Zelle works only with US bank accounts/);
   assert.match(app, /<figure class="zelle-qr"><img src="' \+ ZELLE\.qr/);
   assert.doesNotMatch(app, /copyval|data-what=|zelleEmail|emailHtml|email: '/);
   assert.doesNotMatch(app, /huydinhvn1|@gmail/);
-  for (const f of ['public/app.js', 'public/index.html', 'public/style.css', 'README.md', 'server.js']) {
+  for (const f of ['public/app.js', 'public/i18n.js', 'public/index.html', 'public/style.css', 'README.md', 'server.js']) {
     const s = read(f);
     assert.doesNotMatch(s, /912|881[-\s]?9519|9519|zellePhone|phoneRaw/, f);
   }
-  for (const f of ['public/index.html', 'public/style.css', 'server.js']) assert.doesNotMatch(read(f), /huydinhvn1|@gmail/, f);
+  for (const f of ['public/index.html', 'public/i18n.js', 'public/style.css', 'server.js']) assert.doesNotMatch(read(f), /huydinhvn1|@gmail/, f);
   // README: dòng giới thiệu Ủng hộ không nhắc email / điện thoại (email liên hệ ở mục trang pháp lý thì được)
   const line = read('README.md').split('\n').find(l => l.includes('**Ủng hộ tác giả**'));
   assert.ok(line && line.includes('zelle-qr.png'));

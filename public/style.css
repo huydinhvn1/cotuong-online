@@ -736,3 +736,29 @@ button.acc-avatar { border: 0; padding: 0; cursor: pointer; font-family: inherit
 .dm-blocked { background: rgba(217, 166, 73, .12); color: #ead7b4; }
 @media (max-width: 560px) { body.vb-on .donate-btn { width: 40px; padding: 0; justify-content: center; } body.vb-on .donate-btn span { display: none; } }
 @media (max-width: 359px) { body.vb-on .inbox-btn { display: none; } }
+
+/* ---------- Nút ngôn ngữ VI / EN + thanh trên khi chật (chuỗi tiếng Anh dài hơn, thêm một nút) ---------- */
+.lang-btn { font-family: inherit; font-size: 13px; font-weight: 800; letter-spacing: .6px; color: var(--ink); cursor: pointer; }
+.lang-btn span { line-height: 1; }
+@media (max-width: 420px) { .topbar-actions { gap: 8px; } }
+@media (max-width: 400px) { body.acc-on:not(.vb-on) .brand-text { display: none; } }
+@media (max-width: 700px) {
+  body.vb-on .brand-text { display: none; }
+  body.vb-on .donate-btn { width: 40px; padding: 0; justify-content: center; }
+  body.vb-on .donate-btn span { display: none; }
+  body.vb-on .conn span { display: none; }
+  body.vb-on .conn { padding: 6px 8px; }
+}
+@media (max-width: 560px) { .vbadge small { display: none; } .vbadge { padding-right: 11px; } body.vb-on .topbar-actions { gap: 8px; } }
+@media (max-width: 420px) {
+  body.vb-on .brand { display: none; }
+  body.vb-on .vbadge { margin-left: 0; }
+  body.vb-on .topbar-actions .icon-btn, body.vb-on .topbar-actions .donate-btn { width: 36px; height: 36px; }
+}
+/* chữ tiếng Anh dài hơn: nút / ô chọn được xuống dòng thay vì tràn */
+.seg button { overflow-wrap: break-word; line-height: 1.2; }
+.controls .btn span { overflow-wrap: break-word; text-align: center; }
+.moves-legend { margin: 8px 2px 0; font-size: 11.5px; line-height: 1.45; color: var(--muted); opacity: .85; }
+/* mức độ máy bằng tiếng Anh ("Beginner", "Medium"…) dài hơn: nút co theo chữ, chữ nhỏ hơn ở màn hẹp — không bẻ đôi từ */
+html[lang="en"] .seg.levels button { flex: 1 1 auto; padding-left: 3px; padding-right: 3px; }
+@media (max-width: 380px) { html[lang="en"] .seg.levels button { font-size: 11.5px; padding-left: 2px; padding-right: 2px; } html[lang="en"] .seg.levels { gap: 2px; } }

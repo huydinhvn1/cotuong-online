@@ -13,6 +13,7 @@ npm test           # chạy kiểm thử (luật cờ, AI, server WebSocket)
 # Kiểm thử trình duyệt (cần playwright-core + Chromium/WebKit):
 # node scripts/check-viewport.js     – bố cục di động (server đang chạy ở :3000)
 # node scripts/check-chat-notify.js  – thông báo tin nhắn giữa 2 người chơi + khán giả
+# node scripts/check-i18n.js         – song ngữ VI/EN: không sót chữ Việt ở giao diện EN, bố cục 320px
 ```
 
 Đổi cổng: `PORT=8080 npm start`
@@ -43,6 +44,7 @@ npm test           # chạy kiểm thử (luật cờ, AI, server WebSocket)
   - Ván xếp hạng: người chơi mất kết nối quá 60 giây (đối thủ được báo trước) bị xử thua; nếu chưa đủ 2 nước thì ván bị huỷ, không tính điểm. Hết giờ, xin thua, hoà, chiếu bí… tính Elo như bình thường.
   - Elo hiện ở khu tài khoản trên sảnh, trên thanh tên người chơi trong ván và trong hộp kết thúc ván (vd "1200 → 1220 (+20)").
 - **Tài khoản (tuỳ chọn)**: đăng nhập bằng Google hoặc Facebook để giữ tên và thống kê Thắng/Thua/Hoà. **Không bắt buộc** – khách vẫn nhập tên và chơi như cũ. Nếu server chưa cấu hình nhà cung cấp nào thì sảnh trông y như trước (không hiện khung tài khoản).
+- **Song ngữ Tiếng Việt / English**: nút **VI / EN** ở thanh trên. Lần đầu tự chọn theo ngôn ngữ trình duyệt (`vi*` → Tiếng Việt, còn lại → English), sau đó nhớ trong `localStorage` (`ct_lang`). Toàn bộ chữ giao diện nằm trong `public/i18n.js` (`def(khoá, vi, en)`); server gửi kèm mã (`code` / `key` + `params`) cho lỗi và thông báo phòng để mỗi người thấy theo ngôn ngữ của mình. Bản EN dùng tên quân General, Advisor, Elephant, Horse, Chariot, Cannon, Soldier; Cờ úp = *Jieqi (hidden pieces)*; ký hiệu nước kiểu WXF (`H2+3`, `C8=5`, `Rf-2`). `<html lang>` và tiêu đề trang đổi theo. `test/i18n.test.js` kiểm tra đủ khoá ở cả hai ngôn ngữ và không còn chữ Việt viết cứng trong mã.
 - Giao diện: bàn gỗ, sông 楚河 漢界 (Sở Hà – Hán Giới), quân tròn chữ Hán, đánh dấu nước vừa đi, chấm nước đi hợp lệ, cảnh báo chiếu tướng, kéo-thả hoặc bấm để đi, âm thanh (bật/tắt), xoay bàn, hỗ trợ điện thoại.
 
 ## Cấu trúc
@@ -55,7 +57,8 @@ lib/rating.js        Công thức Elo (mặc định 1200, K = 40 / 32)
 lib/matchmaker.js    Hàng đợi ghép trận (ưu tiên Elo gần nhất, phạm vi nới rộng theo thời gian chờ)
 shared/xiangqi.js    Bộ luật cờ tướng + cờ úp (dùng chung server + trình duyệt)
 shared/ai.js         AI (alpha-beta)
-public/              Giao diện (HTML/CSS/JS thuần, không cần build) + 3 trang pháp lý tĩnh
+public/              Giao diện (HTML/CSS/JS thuần, không cần build) + 3 trang pháp lý tĩnh (+ bản EN ở public/en/)
+public/i18n.js       Từ điển VI/EN + đổi ngôn ngữ + ký hiệu nước kiểu WXF
 test/                Kiểm thử: node --test (rating, matchmaking, presence, store, server, auth, cờ úp…)
 ```
 
@@ -105,8 +108,9 @@ Mặc định (không đặt biến môi trường nào) app chạy y như cũ: 
 | Chính sách bảo mật | `/chinh-sach-bao-mat` | `/privacy`, `/privacy-policy` |
 | Điều khoản sử dụng | `/dieu-khoan` | `/terms` |
 | Hướng dẫn xoá dữ liệu | `/xoa-du-lieu` | `/data-deletion` |
+| *English*: Privacy / Terms / Data deletion | `/en/privacy`, `/en/terms`, `/en/data-deletion` | `/en/privacy-policy` |
 
-Nội dung tiếng Việt kèm phần tiếng Anh, liên kết ở chân trang sảnh. Sửa nội dung: các file `public/chinh-sach-bao-mat.html`, `public/dieu-khoan.html`, `public/xoa-du-lieu.html` (email liên hệ: huydinhvn1@gmail.com). Nếu sau này đổi dữ liệu thu thập (vd thêm email) thì phải cập nhật chính sách – `test/legal.test.js` sẽ báo lỗi nếu mã nguồn bắt đầu xin/lưu email.
+Nội dung tiếng Việt kèm phần tóm tắt tiếng Anh; bản tiếng Anh đầy đủ ở `public/en/*.html` (hai bản liên kết qua lại + `hreflang`). Chân trang sảnh trỏ tới bản theo ngôn ngữ đang chọn. Sửa nội dung: các file `public/chinh-sach-bao-mat.html`, `public/dieu-khoan.html`, `public/xoa-du-lieu.html` (email liên hệ: huydinhvn1@gmail.com). Nếu sau này đổi dữ liệu thu thập (vd thêm email) thì phải cập nhật chính sách – `test/legal.test.js` sẽ báo lỗi nếu mã nguồn bắt đầu xin/lưu email.
 
 ### 3. Cơ sở dữ liệu (Supabase – miễn phí)
 Ổ đĩa của Render free bị xoá mỗi lần khởi động lại, nên tài khoản và thống kê cần lưu ở Postgres bên ngoài.
