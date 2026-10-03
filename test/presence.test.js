@@ -32,7 +32,7 @@ class Client {
   close() { return new Promise(r => { this.ws.once('close', r); this.ws.close(); }); }
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const view = p => p && { users: p.users, guests: p.guests, playing: p.playing, searching: p.searching };
+const view = p => p && { users: p.users, guests: p.guests, playing: p.playing, playingBy: p.playingBy, searching: p.searching };
 async function expectP(c, want, ms = 2000) {
   const t = Date.now();
   while (JSON.stringify(view(c.presence)) !== JSON.stringify(want)) {
@@ -41,6 +41,7 @@ async function expectP(c, want, ms = 2000) {
   }
 }
 const S0 = { standard: 0, jieqi: 0 };
+const V = (standard, jieqi) => ({ standard, jieqi });
 let n = 0;
 const newUser = () => store.upsertOAuthUser({ provider: 'google', providerId: 'pr-' + (++n), name: 'Người ' + n });
 
@@ -50,41 +51,41 @@ test.after(() => { for (const c of ALL) c.ws && c.ws.terminate(); if (server.clo
 test('Đếm thành viên / khách (không trùng thẻ), ván đang chơi, người đang tìm theo kiểu cờ; cập nhật khi vào/ra', async () => {
   const g1 = await new Client().open();
   // người mới vào nhận số liệu ngay khi chào
-  assert.deepEqual(view(g1.presence), { users: 0, guests: 1, playing: 0, searching: S0 });
+  assert.deepEqual(view(g1.presence), { users: 0, guests: 1, playing: 0, playingBy: V(0, 0), searching: S0 });
   const g1b = await new Client(g1.token).open(); // cùng khách, thẻ thứ 2
   const g2 = await new Client().open();
-  await expectP(g1, { users: 0, guests: 2, playing: 0, searching: S0 });
+  await expectP(g1, { users: 0, guests: 2, playing: 0, playingBy: V(0, 0), searching: S0 });
   const u = await newUser(), v = await newUser();
   const a1 = await new Client(null, u.id).open(), a2 = await new Client(null, u.id).open(); // 1 tài khoản, 2 thẻ
   const b1 = await new Client(null, v.id).open();
-  await expectP(g2, { users: 2, guests: 2, playing: 0, searching: S0 });
+  await expectP(g2, { users: 2, guests: 2, playing: 0, playingBy: V(0, 0), searching: S0 });
   // đang tìm đối thủ theo kiểu cờ
   a1.send({ type: 'mm_join', variant: 'jieqi' });
-  await expectP(g1, { users: 2, guests: 2, playing: 0, searching: { standard: 0, jieqi: 1 } });
+  await expectP(g1, { users: 2, guests: 2, playing: 0, playingBy: V(0, 0), searching: { standard: 0, jieqi: 1 } });
   a1.send({ type: 'mm_leave' });
-  await expectP(g1, { users: 2, guests: 2, playing: 0, searching: S0 });
-  // ván đang chơi: phòng có đủ 2 người
-  g1.send({ type: 'create', color: 'r' }); const cr = await (async () => { for (;;) { const m = g1.msgs.find(x => x.type === 'created'); if (m) return m; await sleep(10); } })();
+  await expectP(g1, { users: 2, guests: 2, playing: 0, playingBy: V(0, 0), searching: S0 });
+  // ván đang chơi: phòng (Cờ úp) có đủ 2 người
+  g1.send({ type: 'create', color: 'r', variant: 'jieqi' }); const cr = await (async () => { for (;;) { const m = g1.msgs.find(x => x.type === 'created'); if (m) return m; await sleep(10); } })();
   await sleep(150); assert.equal(g1.presence.playing, 0, 'phòng mới có 1 người: chưa tính');
   g2.send({ type: 'join', roomId: cr.roomId });
-  await expectP(b1, { users: 2, guests: 2, playing: 1, searching: S0 });
-  // ghép trận tạo thêm 1 ván
+  await expectP(b1, { users: 2, guests: 2, playing: 1, playingBy: V(0, 1), searching: S0 });
+  // ghép trận tạo thêm 1 ván Cờ tướng
   a1.send({ type: 'mm_join', variant: 'standard' }); b1.send({ type: 'mm_join', variant: 'standard' });
-  await expectP(g1b, { users: 2, guests: 2, playing: 2, searching: S0 });
-  // xin thua -> ván kết thúc
+  await expectP(g1b, { users: 2, guests: 2, playing: 2, playingBy: V(1, 1), searching: S0 });
+  // xin thua ván Cờ úp -> ván kết thúc
   g1.send({ type: 'resign' });
-  await expectP(a2, { users: 2, guests: 2, playing: 1, searching: S0 });
+  await expectP(a2, { users: 2, guests: 2, playing: 1, playingBy: V(1, 0), searching: S0 });
   // ra về: thẻ thứ 2 vẫn còn -> vẫn tính
   await a1.close();
   await sleep(200); assert.equal(g2.presence.users, 2, 'tài khoản còn mở thẻ khác');
   await b1.close(); // ván ghép trận còn 0 người chơi kết nối -> không tính "đang chơi"
-  await expectP(g2, { users: 1, guests: 2, playing: 0, searching: S0 });
+  await expectP(g2, { users: 1, guests: 2, playing: 0, playingBy: V(0, 0), searching: S0 });
   await g1.close(); await sleep(200); assert.equal(g2.presence.guests, 2, 'khách g1 còn thẻ khác');
   await g1b.close();
-  await expectP(g2, { users: 1, guests: 1, playing: 0, searching: S0 });
+  await expectP(g2, { users: 1, guests: 1, playing: 0, playingBy: V(0, 0), searching: S0 });
   // /health có cùng số liệu
   const h = await (await fetch(`http://localhost:${PORT}/health`)).json();
-  assert.deepEqual(h.presence, { users: 1, guests: 1, playing: 0, searching: S0 });
+  assert.deepEqual(h.presence, { users: 1, guests: 1, playing: 0, playingBy: V(0, 0), searching: S0 });
   await a2.close(); await g2.close();
 });
 
@@ -101,6 +102,6 @@ test('Gộp thay đổi: nhiều người vào cùng lúc chỉ gửi ít tin; s
   const k = w.msgs.length; w.send({ type: 'mm_leave' }); await sleep(250);
   assert.equal(w.msgs.slice(k).filter(m => m.type === 'presence').length, 0);
   for (const c of many) await c.close();
-  await expectP(w, { users: 0, guests: 1, playing: 0, searching: S0 });
+  await expectP(w, { users: 0, guests: 1, playing: 0, playingBy: V(0, 0), searching: S0 });
   await w.close();
 });

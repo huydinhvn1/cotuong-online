@@ -151,7 +151,8 @@ function recordStats(room, winner) {
 
 // ---------------- Đang trực tuyến (đẩy qua WebSocket, gộp nhiều thay đổi trong PRESENCE_MS) ----------------
 // users = số tài khoản khác nhau đang mở trang, guests = số khách khác nhau (theo token trình duyệt; nhiều thẻ = 1),
-// playing = số phòng đang có ván diễn ra (còn người chơi kết nối), searching = số tài khoản đang tìm đối thủ theo kiểu cờ.
+// playing = số phòng đang có ván diễn ra (còn người chơi kết nối), playingBy = số ván đó theo kiểu cờ (Cờ tướng / Cờ úp),
+// searching = số tài khoản đang tìm đối thủ theo kiểu cờ.
 const PRESENCE_MS = Math.max(50, +process.env.PRESENCE_MS || 600);
 function presence() {
   const users = new Set(), guests = new Set();
@@ -161,12 +162,15 @@ function presence() {
   }
   for (const t of guests) for (const ws of wss.clients) if (ws.token === t && ws.userId && ws.readyState === 1) { guests.delete(t); break; } // khách vừa đăng nhập ở thẻ khác
   let playing = 0;
+  const playingBy = { standard: 0, jieqi: 0 };
   for (const room of rooms.values()) { // ván đang diễn ra và còn ít nhất một người chơi đang kết nối
-    if (room.status === 'playing' && ['r', 'b'].some(c => room.seats[c] && online(room, room.seats[c].token))) playing++;
+    if (room.status === 'playing' && ['r', 'b'].some(c => room.seats[c] && online(room, room.seats[c].token))) {
+      playing++; playingBy[room.variant === 'jieqi' ? 'jieqi' : 'standard']++;
+    }
   }
   const searching = { standard: new Set(), jieqi: new Set() };
   for (const e of mm.queue.values()) if (searching[e.variant]) searching[e.variant].add(e.uid);
-  return { users: users.size, guests: guests.size, playing, searching: { standard: searching.standard.size, jieqi: searching.jieqi.size } };
+  return { users: users.size, guests: guests.size, playing, playingBy, searching: { standard: searching.standard.size, jieqi: searching.jieqi.size } };
 }
 let presenceTimer = null, presenceLast = '';
 function schedulePresence() {

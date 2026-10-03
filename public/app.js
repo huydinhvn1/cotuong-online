@@ -132,10 +132,30 @@
     selected: null, legal: [], hint: null, ai: { level: 3, thinking: false, req: 0 }
   };
 
-  function toast(text, err) {
+  function toast(text, err, variant) {
     var el = document.createElement('div'); el.className = 'toast' + (err ? ' err' : ''); el.textContent = text;
+    if (variant) { el.insertBefore(vchip(variant), el.firstChild); el.classList.add('has-v'); }
     $('#toasts').appendChild(el); setTimeout(function () { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; }, 2600);
     setTimeout(function () { el.remove(); }, 3000);
+  }
+
+  /** Nhãn kiểu cờ (màu riêng: Cờ tướng đỏ, Cờ úp xanh) */
+  function vchip(variant) {
+    var c = document.createElement('span'); c.className = 'vchip ' + (variant === 'jieqi' ? 'jq' : 'std'); c.textContent = VARIANT_NAME[variant] || VARIANT_NAME.standard; return c;
+  }
+  function vchipHtml(variant) { return '<span class="vchip ' + (variant === 'jieqi' ? 'jq' : 'std') + '">' + VARIANT_NAME[variant === 'jieqi' ? 'jieqi' : 'standard'] + '</span>'; }
+  /** Nhãn kiểu cờ nổi bật trên thanh trên khi đang chơi (máy / phòng / ghép trận) */
+  function renderVariantBadge() {
+    var el = $('#variantBadge'), on = currentView === 'game' && !!S.mode;
+    el.hidden = !on; document.body.classList.toggle('vb-on', on);
+    if (!on) return;
+    var jq = S.variant === 'jieqi', name = VARIANT_NAME[jq ? 'jieqi' : 'standard'];
+    var sub = S.mode === 'ai' ? 'với máy' : S.rated ? 'Xếp hạng' : 'Phòng';
+    var html = '<i aria-hidden="true">' + (jq ? '?' : '帥') + '</i><b>' + name + '</b><small>' + sub + '</small>';
+    if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
+    el.className = 'vbadge ' + (jq ? 'jq' : 'std');
+    el.title = 'Đang chơi ' + name + (S.mode === 'ai' ? ' với máy' : S.rated ? ' – ván xếp hạng' : '');
+    el.setAttribute('aria-label', el.title);
   }
 
   // ================= Bàn cờ =================
@@ -473,11 +493,11 @@
     el.innerHTML = h;
   }
   function variantTag() {
-    return S.variant === 'jieqi' ? '<span class="variant-tag">Cờ úp</span><button class="help-link" type="button" data-act="jqrules">Xem luật</button>' : '<span class="variant-tag std">Cờ tướng</span>';
+    return S.variant === 'jieqi' ? '<span class="variant-tag vchip jq">Cờ úp</span><button class="help-link" type="button" data-act="jqrules">Xem luật</button>' : '<span class="variant-tag vchip std">Cờ tướng</span>';
   }
   function renderAll(forcePieces) {
     renderPieces(forcePieces); renderBars(); renderStatus(); renderOffer(); renderControls(); renderMoves(); renderRoomPanel(); tickClocks();
-    updateFab();
+    updateFab(); renderVariantBadge();
   }
 
   // ---------- Nút điều khiển ----------
@@ -652,9 +672,9 @@
       if (el.textContent === t) return;
       el.textContent = t; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
     };
-    var sr = p.searching || {}, tot = (sr.standard | 0) + (sr.jieqi | 0);
-    set('#lvUsers', p.users); set('#lvGuests', p.guests); set('#lvPlaying', p.playing); set('#lvSearching', tot);
-    $('#lvSearchSub').textContent = tot ? 'Cờ tướng ' + (sr.standard | 0) + ' · Cờ úp ' + (sr.jieqi | 0) : '';
+    var sr = p.searching || {}, pb = p.playingBy || { standard: p.playing, jieqi: 0 };
+    set('#lvUsers', p.users); set('#lvGuests', p.guests);
+    set('#lvPlayStd', pb.standard); set('#lvPlayJq', pb.jieqi); set('#lvSearchStd', sr.standard); set('#lvSearchJq', sr.jieqi);
     $('#livePanel').classList.remove('stale'); $('#livePanel').hidden = false;
   }
   function connBanner(show) { $('#conn').hidden = !show; }
@@ -675,7 +695,7 @@
       case 'error':
         toast(m.text, true);
         if (m.code === 'mm_login') mmStop(false);
-        if (m.code === 'no_room') { store.del('ct_last_room'); S.mode = null; S.roomId = null; showView('lobby'); history.replaceState(null, '', '/'); }
+        if (m.code === 'no_room') { store.del('ct_last_room'); store.del('ct_last_room_v'); S.mode = null; S.roomId = null; showView('lobby'); history.replaceState(null, '', '/'); }
         break;
     }
   }
@@ -700,7 +720,7 @@
     if (S.selected != null && (!canMove() || X.sideOf(S.game.board[S.selected]) !== S.myColor)) { S.selected = null; S.legal = []; }
     else if (S.selected != null) S.legal = S.game.targetsFrom(S.selected);
     showView('game');
-    store.set('ct_last_room', room.id);
+    store.set('ct_last_room', room.id); store.set('ct_last_room_v', S.variant);
     // âm thanh cho nước đi của đối thủ
     if (!newGame && room.moves.length === prevLen + 1 && !sameBoard(localBoardBefore, S.game.board)) {
       var mv = room.moves[room.moves.length - 1]; soundFor(mv); if (mv.check) flashCheck();
@@ -835,7 +855,7 @@
     $('#chatTab').hidden = S.mode !== 'online';
     if (S.mode !== 'online') { document.querySelector('.tab[data-tab="moves"]').click(); }
     if (v === 'lobby') { renderResume(); baseTitle = 'Cờ Tướng Online'; setUnread(0); hideChatToast(); connBanner(false); }
-    updateFab();
+    updateFab(); renderVariantBadge();
   }
   function leaveOnline() { if (S.mode === 'online') { Net.send({ type: 'leave' }); S.roomId = null; S.gameNo = 0; } }
   function leaveGame() {
@@ -896,9 +916,10 @@
     var box = $('#resumeBox'), h = '', saved = null;
     try { saved = JSON.parse(store.get('ct_ai', 'null')); } catch (e) { }
     if (saved && !saved.over && saved.moves && saved.moves.length)
-      h += '<div class="resume"><div>Bạn có một ván ' + (saved.variant === 'jieqi' ? '<b>cờ úp</b> ' : '') + 'với máy đang dở · <b>cấp ' + LEVEL_NAMES[saved.level] + '</b> · ' + saved.moves.length + ' nước</div><button class="btn primary" id="resumeAI">Chơi tiếp</button></div>';
+      h += '<div class="resume"><div>' + vchipHtml(saved.variant) + ' Bạn có một ván ' + (saved.variant === 'jieqi' ? '<b>cờ úp</b> ' : '<b>cờ tướng</b> ') + 'với máy đang dở · <b>cấp ' + LEVEL_NAMES[saved.level] + '</b> · ' + saved.moves.length + ' nước</div><button class="btn primary" id="resumeAI">Chơi tiếp</button></div>';
     var last = store.get('ct_last_room', '');
-    if (last) h += '<div class="resume"><div>Phòng gần nhất: <b>' + esc(last) + '</b></div><button class="btn" id="resumeRoom">Quay lại phòng</button></div>';
+    var lastV = store.get('ct_last_room_v', '');
+    if (last) h += '<div class="resume"><div>' + (lastV ? vchipHtml(lastV) + ' ' : '') + 'Phòng gần nhất: <b>' + esc(last) + '</b></div><button class="btn" id="resumeRoom">Quay lại phòng</button></div>';
     box.innerHTML = h; box.hidden = !h;
     if ($('#resumeAI')) $('#resumeAI').onclick = function () { startAI(saved.level, saved.human, saved.moves, saved.variant, deobf(saved.deal)); };
     if ($('#resumeRoom')) $('#resumeRoom').onclick = function () { joinRoomById(last); };
@@ -989,7 +1010,8 @@
     if (S.mode === 'ai') resetWorker();
     S.mode = 'online'; S.roomId = m.roomId; S.gameNo = 0; S.moves = []; prevBoard = null; $('#chatList').innerHTML = '';
     history.pushState('room', '', '/r/' + m.roomId); store.set('ct_last_room', m.roomId);
-    toast('Đã tìm thấy đối thủ: ' + m.opponent.name + ' (Elo ' + m.opponent.rating + ') – bạn cầm quân ' + SIDE_NAME[m.color]);
+    store.set('ct_last_room_v', m.variant === 'jieqi' ? 'jieqi' : 'standard');
+    toast('Đã tìm thấy đối thủ: ' + m.opponent.name + ' (Elo ' + m.opponent.rating + ') – ván ' + VARIANT_NAME[m.variant === 'jieqi' ? 'jieqi' : 'standard'] + ', bạn cầm quân ' + SIDE_NAME[m.color], false, m.variant);
     Sound.play('notify');
   }
   var lastRating = null;

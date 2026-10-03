@@ -573,7 +573,7 @@ a.btn.primary { color: #2a1a0c; }
 .live-dot { width: 9px; height: 9px; border-radius: 50%; background: #4cd17a; box-shadow: 0 0 0 0 rgba(76, 209, 122, .6); animation: livePulse 2s infinite; }
 .live.stale .live-dot { background: #8a7a66; animation: none; }
 @keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(76, 209, 122, .55); } 70% { box-shadow: 0 0 0 8px rgba(76, 209, 122, 0); } 100% { box-shadow: 0 0 0 0 rgba(76, 209, 122, 0); } }
-.live-stats { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.live-stats { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, .8fr) minmax(0, 1.4fr) minmax(0, 1.4fr); gap: 8px; }
 .live-stat { min-width: 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 6px; padding: 6px 10px; border-radius: 12px; background: rgba(0, 0, 0, .18); }
 .live-stat b { display: inline-block; font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
 .live-stat b.bump { animation: liveBump .5s; }
@@ -581,8 +581,53 @@ a.btn.primary { color: #2a1a0c; }
 .live-stat span { font-size: 13px; color: var(--muted); }
 .live-stat small { flex-basis: 100%; font-size: 11.5px; color: var(--gold); }
 .live-stat small:empty { display: none; }
+.live-var { min-width: 0; display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; padding: 6px 10px; border-radius: 12px; border: 1px solid; }
+.live-var.std { background: rgba(184, 34, 27, .16); border-color: rgba(232, 96, 80, .45); }
+.live-var.jq { background: rgba(70, 110, 230, .16); border-color: rgba(120, 160, 255, .5); }
+.live-var-h { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 14px; white-space: nowrap; }
+.live-var.std .live-var-h { color: #ffd2c4; } .live-var.jq .live-var-h { color: #d3dfff; }
+.live-var-h i { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 800; flex: none; }
+.live-var.std .live-var-h i { background: #f1dcb0; color: var(--red); font-family: var(--cjk); }
+.live-var.jq .live-var-h i { background: #2f4380; color: #dce6ff; box-shadow: inset 0 0 0 1.5px #8fa9ff; }
+.live-var-n { display: flex; flex-wrap: wrap; gap: 0 10px; min-width: 0; }
+.live-var-n span { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.live-var-n b { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); display: inline-block; }
+.live-var-n b.bump { animation: liveBump .5s; }
 @media (max-width: 760px) {
   .live { flex-direction: column; align-items: stretch; padding: 12px; }
   .live-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (prefers-reduced-motion: reduce) { .live-dot, .live-stat b.bump { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .live-dot, .live-stat b.bump, .live-var-n b.bump { animation: none; } }
+
+/* ---------- Nhãn kiểu cờ: Cờ tướng (đỏ) / Cờ úp (xanh) ---------- */
+.vchip { display: inline-flex; align-items: center; padding: 1px 9px; border-radius: 99px; font-size: 12.5px; font-weight: 800; line-height: 1.5; white-space: nowrap; border: 1px solid; }
+.vchip.std { color: #ffd2c4; background: rgba(184, 34, 27, .22); border-color: rgba(232, 96, 80, .6); }
+.vchip.jq { color: #d6e2ff; background: rgba(70, 110, 230, .24); border-color: rgba(120, 160, 255, .65); }
+.room-meta .variant-tag.vchip { font-weight: 800; }
+.resume .vchip { margin-right: 4px; vertical-align: 1px; }
+.toast.has-v .vchip { margin-right: 8px; vertical-align: 1px; }
+.vbadge {
+  display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 12px 0 5px; border-radius: 99px; border: 1.5px solid;
+  min-width: 0; flex: none; margin: 0 10px; white-space: nowrap; box-shadow: 0 4px 14px rgba(0, 0, 0, .25); animation: vbIn .35s cubic-bezier(.2, .8, .3, 1.2);
+}
+.vbadge[hidden] { display: none; }
+.vbadge i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-weight: 800; font-size: 15px; flex: none; }
+.vbadge.std i { font-family: var(--cjk); }
+.vbadge b { font-size: 15.5px; font-weight: 800; letter-spacing: .2px; }
+.vbadge small { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; opacity: .8; padding-left: 7px; border-left: 1px solid currentColor; }
+.vbadge.std { color: #ffd9cf; background: linear-gradient(180deg, rgba(196, 44, 34, .45), rgba(150, 26, 20, .35)); border-color: rgba(240, 110, 92, .75); }
+.vbadge.std i { background: radial-gradient(circle at 35% 30%, #fff8e8, #f1dcb0 60%, #d4a865); color: var(--red); box-shadow: inset 0 0 0 1.5px var(--red); }
+.vbadge.jq { color: #dde7ff; background: linear-gradient(180deg, rgba(76, 118, 240, .45), rgba(44, 72, 170, .38)); border-color: rgba(140, 175, 255, .8); }
+.vbadge.jq i { background: radial-gradient(circle at 35% 30%, #4d66b8, #2a3c78); color: #e6edff; box-shadow: inset 0 0 0 1.5px #9bb4ff; }
+@keyframes vbIn { from { opacity: 0; transform: scale(.85); } }
+@media (max-width: 560px) {
+  body.vb-on .brand-text { display: none; }
+  .vbadge { height: 34px; margin: 0 6px; }
+  body.vb-on .conn span { display: none; }
+  body.vb-on .conn { padding: 6px 8px; }
+}
+@media (max-width: 420px) { .vbadge small { display: none; } .vbadge { padding-right: 11px; } }
+@media (orientation: landscape) and (max-height: 600px) { .vbadge { height: 32px; } .vbadge i { width: 24px; height: 24px; font-size: 14px; } }
+.toast.has-v .vchip { color: #fff; border-color: transparent; }
+.toast.has-v .vchip.std { background: #b8221b; }
+.toast.has-v .vchip.jq { background: #3b5fd0; }
