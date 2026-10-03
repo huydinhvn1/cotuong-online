@@ -161,10 +161,10 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
 .join-form { display: flex; gap: 8px; }
 .join-form input, .chat-form input { min-width: 0; }
 .join-form input { text-transform: uppercase; letter-spacing: 4px; font-weight: 700; text-align: center; font-size: 18px; }
-/* Chữ gợi ý mã phòng mờ hơn 50% so với mặc định (darkgray #a9a9a9 của Safari/iOS -> alpha .5).
+/* Chữ gợi ý mã phòng mờ: darkgray #a9a9a9 (mặc định Safari/iOS) alpha .4 (= .5 × 0.8).
    opacity:1 để Firefox không nhân thêm .54; -webkit-text-fill-color để iOS không lấy màu chữ nhập. */
-.join-form input::placeholder { color: rgba(169, 169, 169, .5); -webkit-text-fill-color: rgba(169, 169, 169, .5); opacity: 1; }
-.join-form input::-webkit-input-placeholder { color: rgba(169, 169, 169, .5); -webkit-text-fill-color: rgba(169, 169, 169, .5); opacity: 1; }
+.join-form input::placeholder { color: rgba(169, 169, 169, .4); -webkit-text-fill-color: rgba(169, 169, 169, .4); opacity: 1; }
+.join-form input::-webkit-input-placeholder { color: rgba(169, 169, 169, .4); -webkit-text-fill-color: rgba(169, 169, 169, .4); opacity: 1; }
 .howto { display: grid; gap: 10px; margin-top: auto; padding-top: 6px; }
 .howto div { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14.5px; }
 .howto b { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: rgba(217, 166, 73, .15); color: var(--gold2); font-size: 13px; }
@@ -1561,7 +1561,7 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
       h += btn('hint', 'bulb', 'Gợi ý', { disabled: !canMove() });
       h += btn('resign', 'flag', 'Xin thua', { disabled: over || !S.moves.length, cls: 'danger' });
       h += btn('new', 'refresh', 'Ván mới');
-      h += btn('flip', 'flip', 'Lật bàn');
+      h += btn('flip', 'flip', 'Xoay bàn');
       h += btn('leave', 'exit', 'Về sảnh');
     } else if (S.mode === 'local') {
       h += btn('undo', 'undo', 'Đi lại', { disabled: !S.moves.length || S.paused });
@@ -1570,7 +1570,7 @@ input:focus { border-color: var(--gold) !important; box-shadow: 0 0 0 3px rgba(2
       h += btn('draw', 'draw', 'Hoà', { disabled: over || !S.moves.length || S.paused });
       if (S.clocks) h += btn('pause', S.paused ? 'play' : 'pause', S.paused ? 'Tiếp tục' : 'Tạm dừng', { disabled: over, cls: S.paused ? 'primary' : '' });
       h += btn('new', 'refresh', 'Ván mới');
-      h += btn('flip', 'flip', 'Lật bàn');
+      h += btn('flip', 'flip', 'Xoay bàn');
       h += btn('leave', 'exit', 'Về sảnh');
     }
     $('#controls').innerHTML = h;

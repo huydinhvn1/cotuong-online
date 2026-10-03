@@ -355,7 +355,7 @@
       h += btn('hint', 'bulb', 'Gợi ý', { disabled: !canMove() });
       h += btn('resign', 'flag', 'Xin thua', { disabled: over || !S.moves.length, cls: 'danger' });
       h += btn('new', 'refresh', 'Ván mới');
-      h += btn('flip', 'flip', 'Lật bàn');
+      h += btn('flip', 'flip', 'Xoay bàn');
       h += btn('leave', 'exit', 'Về sảnh');
     } else if (S.mode === 'online') {
       var me = S.myColor, playing = S.status === 'playing', busy = !!S.pending;
@@ -366,7 +366,7 @@
         h += btn('resign', 'flag', 'Xin thua', { disabled: !playing, cls: 'danger' });
         h += btn('rematch', 'refresh', over ? 'Chơi lại' : 'Ván mới', { disabled: busy || (!over && !S.moves.length) });
       }
-      h += btn('flip', 'flip', 'Lật bàn');
+      h += btn('flip', 'flip', 'Xoay bàn');
       h += btn('leave', 'exit', 'Rời phòng');
     }
     $('#controls').innerHTML = h;

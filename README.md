@@ -29,7 +29,7 @@ npm test           # chạy kiểm thử (luật cờ, AI, server WebSocket)
 - **F5 / mất mạng không mất ván**: trạng thái phòng giữ trên server, trình duyệt tự kết nối lại và giữ đúng ghế.
 - **Chơi với máy**: AI alpha-beta (iterative deepening, quiescence, bảng điểm vị trí) chạy trong Web Worker. Có gợi ý nước đi, đi lại, ván tự lưu.
 - Ký hiệu nước đi kiểu Việt Nam: `P2-5` (bình), `M8.7` (tiến), `X1/2` (thoái), `Xt.1` / `Xs-8` (quân trước/sau).
-- Giao diện: bàn gỗ, sông 楚河 漢界 (Sở Hà – Hán Giới), quân tròn chữ Hán, đánh dấu nước vừa đi, chấm nước đi hợp lệ, cảnh báo chiếu tướng, kéo-thả hoặc bấm để đi, âm thanh (bật/tắt), lật bàn, hỗ trợ điện thoại.
+- Giao diện: bàn gỗ, sông 楚河 漢界 (Sở Hà – Hán Giới), quân tròn chữ Hán, đánh dấu nước vừa đi, chấm nước đi hợp lệ, cảnh báo chiếu tướng, kéo-thả hoặc bấm để đi, âm thanh (bật/tắt), xoay bàn, hỗ trợ điện thoại.
 
 ## Cấu trúc
 
