@@ -127,7 +127,7 @@ Render → service **cotuong-online** → **Environment** → **Add Environment 
 
 | Biến | Giá trị |
 |---|---|
-| `PUBLIC_URL` | `https://cotuong-online-6qpn.onrender.com` (không có `/` ở cuối) |
+| `PUBLIC_URL` | `https://cotuongvn.net` (tên miền chính, không có `/` ở cuối) |
 | `SESSION_SECRET` | chuỗi ngẫu nhiên dài, vd tạo bằng `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `GOOGLE_CLIENT_ID` | Client ID ở bước 1 |
 | `GOOGLE_CLIENT_SECRET` | Client secret ở bước 1 |
@@ -135,9 +135,11 @@ Render → service **cotuong-online** → **Environment** → **Add Environment 
 | `FACEBOOK_APP_SECRET` | App secret ở bước 2 |
 | `DATABASE_URL` | chuỗi kết nối Supabase ở bước 3 |
 
-Lưu → Render tự deploy lại. Kiểm tra: mở `https://cotuong-online-6qpn.onrender.com/api/me` phải thấy `"providers":{"google":true,"facebook":true}`.
+Lưu → Render tự deploy lại. Kiểm tra: mở `https://cotuongvn.net/api/me` phải thấy `"providers":{"google":true,"facebook":true}`.
 
 Biến tuỳ chọn: `ABANDON_MS` (ván xếp hạng: thời gian mất kết nối trước khi bị xử thua, mặc định 60000), `USERS_FILE` (đường dẫn file JSON khi không có DATABASE_URL, mặc định `data/users.json`), `USERS_TABLE` (tên bảng Postgres, mặc định `cotuong_users`), `FACEBOOK_GRAPH_VERSION` (mặc định `v26.0`).
+
+> **Tên miền chính**: khi đặt `PUBLIC_URL`, mọi yêu cầu GET/HEAD tới tên miền khác (vd link cũ `https://cotuong-online-6qpn.onrender.com/r/ABC123`) được chuyển hướng 301 về `PUBLIC_URL` + đúng đường dẫn + truy vấn (`lib/canonical.js`). Không chuyển hướng: WebSocket, localhost / 127.0.0.1 / địa chỉ IP, `/health` (health check của Render), POST… Không đặt `PUBLIC_URL` thì không chuyển hướng gì. (Nhớ thêm `https://cotuongvn.net/auth/google/callback` và `/auth/facebook/callback` vào Google / Facebook.)
 
 > Không đặt `SESSION_SECRET` thì server tự sinh khoá ngẫu nhiên mỗi lần khởi động → mọi người bị đăng xuất sau mỗi lần Render khởi động lại.
 

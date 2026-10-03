@@ -16,6 +16,8 @@ const PORT = +process.env.PORT || 3000;
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1); // Render/Fly đứng sau proxy https
+// Tên miền cũ (vd cotuong-online-6qpn.onrender.com) -> 301 về PUBLIC_URL (https://cotuongvn.net), giữ đường dẫn + truy vấn (link /r/MÃ vẫn chạy)
+app.use(require('./lib/canonical').canonicalRedirect(process.env.PUBLIC_URL));
 
 // Tài khoản (tuỳ chọn): Google / Facebook. Không cấu hình gì thì chỉ có chế độ khách như trước.
 const store = createStore(process.env);
