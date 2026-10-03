@@ -46,6 +46,17 @@
     </div>
   </section>
 
+  <!-- Đang trực tuyến: số liệu thời gian thực do server đẩy qua WebSocket -->
+  <section class="live" id="livePanel" hidden aria-label="Đang trực tuyến">
+    <div class="live-head"><i class="live-dot" aria-hidden="true"></i>Đang trực tuyến</div>
+    <div class="live-stats">
+      <div class="live-stat"><b id="lvUsers">0</b><span>thành viên</span></div>
+      <div class="live-stat"><b id="lvGuests">0</b><span>khách</span></div>
+      <div class="live-stat"><b id="lvPlaying">0</b><span>ván đang chơi</span></div>
+      <div class="live-stat"><b id="lvSearching">0</b><span>đang tìm đối thủ</span><small id="lvSearchSub"></small></div>
+    </div>
+  </section>
+
   <div id="resumeBox" hidden></div>
 
   <!-- Ghép trận tự động (cần đăng nhập; chỉ hiện khi server bật đăng nhập) -->

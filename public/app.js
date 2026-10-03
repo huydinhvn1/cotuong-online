@@ -14,15 +14,13 @@
     '<li>Được ăn quân đang úp – quân bị ăn sẽ lộ mặt.</li>' +
     '<li>Không ai biết quân úp là gì, kể cả người cầm quân. Chiếu, chiếu bí, lộ mặt tướng, cấm chiếu dai… như cờ tướng.</li></ul>' +
     '<div class="row"><button class="btn primary" data-act="modal-close">Đã hiểu</button></div>';
-  var ZELLE = { name: 'Huy Dinh', email: 'huydinhvn1@gmail.com' };
-  ZELLE.emailHtml = 'huydinhvn1<wbr>@gmail.com';
-  var DONATE = '<div class="donate-heart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4 7 4c2.1 0 3.6 1.1 5 2.9C13.4 5.1 14.9 4 17 4c4 0 6.1 4.2 4.6 7.7C19.5 16.4 12 21 12 21z"/></svg></div><h3 class="donate-title">Ủng hộ tác giả qua Zelle</h3>' +
-    '<p class="donate-lead">Nếu bạn thấy vui khi chơi, mọi sự ủng hộ đều rất quý. Cảm ơn bạn rất nhiều!<span lang="en">Support the author via Zelle – thank you!</span></p>' +
-    '<div class="zelle-box"><div class="zelle-to"><span class="k">Người nhận · Recipient</span><b>' + ZELLE.name + '</b></div>' +
-    '<div class="zelle-row"><span class="k">Email Zelle</span><span class="v" id="zelleEmail">' + ZELLE.emailHtml + '</span>' +
-    '<button class="btn" type="button" data-act="copyval" data-copy="' + ZELLE.email + '" data-what="email"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span></button></div></div>' +
-    '<ol class="donate-steps"><li>Mở <b>app ngân hàng Mỹ</b> của bạn → chọn <b>Zelle</b>.</li><li>Gửi tới email ở trên, tên người nhận <b>Huy Dinh</b>.</li></ol>' +
-    '<p class="donate-en" lang="en">Open your US bank app → Zelle → send to the email above (recipient: Huy Dinh).</p>' +
+  var ZELLE = { name: 'HUY DINH', qr: '/zelle-qr.png' };
+  var DONATE = '<h3 class="donate-title"><svg class="donate-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4 7 4c2.1 0 3.6 1.1 5 2.9C13.4 5.1 14.9 4 17 4c4 0 6.1 4.2 4.6 7.7C19.5 16.4 12 21 12 21z"/></svg>Ủng hộ tác giả qua Zelle</h3>' +
+    '<p class="donate-lead">Cảm ơn bạn rất nhiều!<span lang="en">Support the author via Zelle – thank you!</span></p>' +
+    '<figure class="zelle-qr"><img src="' + ZELLE.qr + '" width="1320" height="1752" alt="Mã QR Zelle – người nhận ' + ZELLE.name + ' (Zelle QR code, recipient ' + ZELLE.name + ')"></figure>' +
+    '<p class="zelle-to"><span class="k">Người nhận · Recipient</span><b>' + ZELLE.name + '</b></p>' +
+    '<p class="donate-how">Mở app ngân hàng → Zelle → quét mã QR<span lang="en">Open your bank app → Zelle → scan the QR code.</span></p>' +
+    '<p class="donate-save">Trên điện thoại: nhấn giữ ảnh để lưu, rồi chọn ảnh trong Zelle. <a href="' + ZELLE.qr + '" download="zelle-qr-huy-dinh.png">Tải ảnh QR</a></p>' +
     '<p class="donate-note">Zelle chỉ dùng được với tài khoản ngân hàng tại Mỹ. Trang này không xử lý thanh toán. <span lang="en">Zelle works only with US bank accounts; this site does not process payments.</span></p>' +
     '<div class="row"><button class="btn primary" data-act="modal-close">Đóng</button></div>';
   /** Sao chép vào clipboard; trình duyệt cũ / không cho phép thì dùng textarea ẩn + execCommand */
@@ -498,8 +496,7 @@
     }
     if (act === 'modal-close') { closeModal(); return; }
     if (act === 'jqrules') { openModal(JQ_RULES); return; }
-    if (act === 'donate') { openModal(DONATE); return; }
-    if (act === 'copyval') { copyText(b.dataset.copy, 'Đã sao chép ' + (b.dataset.what || ''), b); return; }
+    if (act === 'donate') { openModal(DONATE, 'donate'); return; }
     if (S.mode === 'online') {
       var map = { undo: 'undo_request', draw: 'draw_offer', resign: null, rematch: 'rematch', cancel: 'cancel' };
       if (act === 'resign') { confirmBox('Xin thua ván này?', 'Đối thủ sẽ được tính thắng.', 'Xin thua', function () { Net.send({ type: 'resign' }); }); return; }
@@ -641,13 +638,25 @@
       };
       ws.onmessage = function (e) { var m; try { m = JSON.parse(e.data); } catch (er) { return; } onServer(m); };
       ws.onclose = function () {
-        self.ready = false;
+        self.ready = false; $('#livePanel').classList.add('stale');
         if (S.mode === 'online') connBanner(true);
         setTimeout(function () { self.connect(); }, Math.min(8000, 600 * Math.pow(1.6, self.retry++)));
       };
     },
     send: function (m) { if (this.ready && this.ws.readyState === 1) this.ws.send(JSON.stringify(m)); else this.queue.push(m); }
   };
+  // ---------- Đang trực tuyến ----------
+  function renderPresence(p) {
+    var set = function (id, v) {
+      var el = $(id), t = String(v | 0);
+      if (el.textContent === t) return;
+      el.textContent = t; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+    };
+    var sr = p.searching || {}, tot = (sr.standard | 0) + (sr.jieqi | 0);
+    set('#lvUsers', p.users); set('#lvGuests', p.guests); set('#lvPlaying', p.playing); set('#lvSearching', tot);
+    $('#lvSearchSub').textContent = tot ? 'Cờ tướng ' + (sr.standard | 0) + ' · Cờ úp ' + (sr.jieqi | 0) : '';
+    $('#livePanel').classList.remove('stale'); $('#livePanel').hidden = false;
+  }
   function connBanner(show) { $('#conn').hidden = !show; }
   function defaultName() { return 'Kỳ thủ ' + token.replace(/[^a-z0-9]/gi, '').slice(0, 4).toUpperCase(); }
 
@@ -659,6 +668,7 @@
       case 'chat': addChatMsg(m.message); break;
       case 'account': if (m.user && Account.user && m.user.id === Account.user.id) { Account.user = m.user; renderAccount(); } break;
       case 'toast': toast(m.text); Sound.play('notify'); break;
+      case 'presence': renderPresence(m); break;
       case 'mm_status': onMMStatus(m); break;
       case 'mm_found': onMMFound(m); break;
       case 'rating': onRating(m); break;

@@ -25,7 +25,7 @@ app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] })
 const LEGAL = { '/privacy': 'chinh-sach-bao-mat', '/privacy-policy': 'chinh-sach-bao-mat', '/terms': 'dieu-khoan', '/data-deletion': 'xoa-du-lieu' };
 for (const [alias, page] of Object.entries(LEGAL)) app.get(alias, (req, res) => res.sendFile(path.join(__dirname, 'public', page + '.html')));
 app.use('/shared', express.static(path.join(__dirname, 'shared')));
-app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size, queue: mm.size, uptime: process.uptime() | 0 }));
+app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size, queue: mm.size, presence: presence(), uptime: process.uptime() | 0 }));
 app.get('/r/:id', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const server = http.createServer(app);
@@ -116,6 +116,7 @@ function finish(room, winner, reason) {
   if (room.timeControl && room.status === 'playing') room.clocks = liveClocks(room);
   room.status = 'over'; room.result = { winner, reason }; room.pending = null;
   recordStats(room, winner);
+  schedulePresence();
 }
 
 // Cập nhật thắng/thua/hoà cho người chơi đã đăng nhập (mỗi ván 1 lần, ván phải có ít nhất 2 nước)
@@ -146,6 +147,39 @@ function recordStats(room, winner) {
       }).catch(e => console.error('[store] recordResult', e.message));
     }
   });
+}
+
+// ---------------- Đang trực tuyến (đẩy qua WebSocket, gộp nhiều thay đổi trong PRESENCE_MS) ----------------
+// users = số tài khoản khác nhau đang mở trang, guests = số khách khác nhau (theo token trình duyệt; nhiều thẻ = 1),
+// playing = số phòng đang có ván diễn ra (còn người chơi kết nối), searching = số tài khoản đang tìm đối thủ theo kiểu cờ.
+const PRESENCE_MS = Math.max(50, +process.env.PRESENCE_MS || 600);
+function presence() {
+  const users = new Set(), guests = new Set();
+  for (const ws of wss.clients) {
+    if (ws.readyState !== 1 || !ws.token) continue;
+    if (ws.userId) users.add(ws.userId); else guests.add(ws.token);
+  }
+  for (const t of guests) for (const ws of wss.clients) if (ws.token === t && ws.userId && ws.readyState === 1) { guests.delete(t); break; } // khách vừa đăng nhập ở thẻ khác
+  let playing = 0;
+  for (const room of rooms.values()) { // ván đang diễn ra và còn ít nhất một người chơi đang kết nối
+    if (room.status === 'playing' && ['r', 'b'].some(c => room.seats[c] && online(room, room.seats[c].token))) playing++;
+  }
+  const searching = { standard: new Set(), jieqi: new Set() };
+  for (const e of mm.queue.values()) if (searching[e.variant]) searching[e.variant].add(e.uid);
+  return { users: users.size, guests: guests.size, playing, searching: { standard: searching.standard.size, jieqi: searching.jieqi.size } };
+}
+let presenceTimer = null, presenceLast = '';
+function schedulePresence() {
+  if (presenceTimer) return;
+  presenceTimer = setTimeout(() => {
+    presenceTimer = null;
+    const p = presence(), json = JSON.stringify(p);
+    if (json === presenceLast) return; // không đổi thì không gửi
+    presenceLast = json;
+    const msg = JSON.stringify({ type: 'presence', ...p });
+    for (const ws of wss.clients) if (ws.readyState === 1 && ws.token) ws.send(msg);
+  }, PRESENCE_MS);
+  presenceTimer.unref();
 }
 
 // ---------------- Ghép trận ----------------
@@ -232,6 +266,7 @@ const handlers = {
     ws.name = (ws.user && clean(ws.user.name, 24)) || clean(m.name, 24) || 'Kỳ thủ ' + ws.token.slice(0, 4);
     ws.userId = ws.user ? ws.user.id : null;
     send(ws, { type: 'welcome', token: ws.token });
+    send(ws, { type: 'presence', ...presence() }); // người mới vào thấy ngay, những người khác nhận sau (gộp)
   },
   create(ws, m) {
     mmCancel(ws);
@@ -360,14 +395,14 @@ wss.on('connection', (ws, req) => {
   // đọc phiên đăng nhập từ cookie (nếu có); tin nhắn được xử lý tuần tự sau khi biết người dùng
   ws.ready = storeReady.then(() => auth.userFromCookieHeader(req.headers.cookie)).then(u => { ws.user = u; }, () => { ws.user = null; });
   ws.on('message', data => { ws.ready = ws.ready.then(() => onMessage(ws, data)); });
-  ws.on('close', () => { mm.remove(ws.mmKey); leaveRoom(ws); });
+  ws.on('close', () => { mm.remove(ws.mmKey); leaveRoom(ws); schedulePresence(); });
 });
 function onMessage(ws, data) {
   let m; try { m = JSON.parse(data); } catch { return; }
   if (!m || typeof m.type !== 'string' || !handlers.hasOwnProperty(m.type)) return;
   if (m.type !== 'hello' && !ws.token) return send(ws, { type: 'error', text: 'Chưa xác thực.' });
   if (NEEDS_ROOM.has(m.type) && !ws.room) return;
-  try { return Promise.resolve(handlers[m.type](ws, m, ws.room)).catch(e => console.error('handler error', m.type, e)); }
+  try { return Promise.resolve(handlers[m.type](ws, m, ws.room)).catch(e => console.error('handler error', m.type, e)).finally(schedulePresence); }
   catch (e) { console.error('handler error', m.type, e); }
 }
 
@@ -400,7 +435,7 @@ function checkAbandon(room) {
 const pingTimer = setInterval(() => {
   for (const ws of wss.clients) { if (!ws.isAlive) { ws.terminate(); continue; } ws.isAlive = false; ws.ping(); }
   const now = Date.now();
-  for (const [id, room] of rooms) if (!room.clients.size && now - room.lastActive > 12 * 3600e3) rooms.delete(id);
+  for (const [id, room] of rooms) if (!room.clients.size && now - room.lastActive > 12 * 3600e3) { rooms.delete(id); schedulePresence(); }
 }, 25000);
 clockTimer.unref(); pingTimer.unref(); matchTimer.unref(); // server.listen giữ tiến trình; cho phép đóng gọn khi kiểm thử trong cùng tiến trình
 

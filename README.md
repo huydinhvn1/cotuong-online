@@ -33,7 +33,8 @@ npm test           # chạy kiểm thử (luật cờ, AI, server WebSocket)
   - Online: **server giữ mặt thật** của quân úp, trình duyệt chỉ nhận mặt quân khi nó được lật hoặc bị ăn (xem bằng devtools cũng không thấy).
   - Máy chỉ dùng thông tin công khai: quân úp được tính theo giá trị kỳ vọng của các quân còn có thể nằm dưới đó; máy không nhìn mặt quân úp của bên nào.
   - Không áp dụng cho chế độ hai người một máy (bản offline).
-- **Ủng hộ tác giả**: nút ❤ *Ủng hộ* ở thanh trên và link ở chân trang mở hộp hướng dẫn chuyển qua **Zelle** (email huydinhvn1@gmail.com, người nhận Huy Dinh), có nút sao chép. Trang không xử lý thanh toán; Zelle chỉ dùng được với tài khoản ngân hàng tại Mỹ.
+- **Ủng hộ tác giả**: nút ❤ *Ủng hộ* ở thanh trên và link ở chân trang mở hộp chỉ hiện **mã QR Zelle** (`public/zelle-qr.png`, người nhận HUY DINH): mở app ngân hàng → Zelle → quét mã QR; trên điện thoại có thể nhấn giữ ảnh để lưu hoặc bấm "Tải ảnh QR". Trang không xử lý thanh toán; Zelle chỉ dùng được với tài khoản ngân hàng tại Mỹ. Đổi mã QR: thay file `public/zelle-qr.png` (giữ nền trắng, đủ lớn để quét).
+- **Đang trực tuyến**: khung nhỏ ở sảnh hiện số liệu thời gian thực do server đẩy qua WebSocket: số thành viên đang online (mỗi tài khoản tính 1 dù mở nhiều thẻ), số khách (theo trình duyệt), số ván đang chơi (còn người chơi kết nối) và số người đang tìm đối thủ (theo Cờ tướng / Cờ úp). Cập nhật khi có người vào/ra, đăng nhập/đăng xuất, bắt đầu/kết thúc ván, tìm/huỷ tìm; các thay đổi được gộp (mặc định 0,6 giây, biến `PRESENCE_MS`) và chỉ gửi khi số liệu đổi. Mất kết nối thì khung mờ đi. `/health` cũng trả các số này.
 - **Tìm đối thủ tự động + Elo** (cần đăng nhập): khung *Tìm đối thủ tự động* ở sảnh, chọn Cờ tướng hoặc Cờ úp → **Tìm đối thủ**. Server ghép hai người cùng kiểu cờ có Elo gần nhau nhất (người chờ lâu được xét trước); phạm vi chênh lệch bắt đầu ±100, nới thêm 50 mỗi 5 giây, sau 60 giây thì ghép với bất kỳ ai. Không bao giờ ghép một tài khoản với chính nó (tìm ở thẻ thứ hai thì thẻ cũ tự dừng). Khi ghép xong, server tạo phòng mới (màu quân ngẫu nhiên, 10 phút + 5 giây/nước) và đưa cả hai vào; hai bên thấy tên + Elo của nhau. Đang chờ có đồng hồ, nút **Huỷ tìm**; đóng trang/mất kết nối thì tự rời hàng đợi. Khách thấy gợi ý "Đăng nhập để tìm đối thủ tự động".
   - **Elo** riêng cho cờ tướng và cờ úp, mặc định 1200, K = 40 trong 20 ván xếp hạng đầu, sau đó K = 32. Chỉ ván trong phòng ghép trận mới tính Elo (kể cả ván mới trong cùng phòng, đổi màu); phòng tự tạo không tính Elo nhưng vẫn tính Thắng/Thua/Hoà như trước. Ván phải có ít nhất 2 nước.
   - Ván xếp hạng: người chơi mất kết nối quá 60 giây (đối thủ được báo trước) bị xử thua; nếu chưa đủ 2 nước thì ván bị huỷ, không tính điểm. Hết giờ, xin thua, hoà, chiếu bí… tính Elo như bình thường.
@@ -52,7 +53,7 @@ lib/matchmaker.js    Hàng đợi ghép trận (ưu tiên Elo gần nhất, ph�
 shared/xiangqi.js    Bộ luật cờ tướng + cờ úp (dùng chung server + trình duyệt)
 shared/ai.js         AI (alpha-beta)
 public/              Giao diện (HTML/CSS/JS thuần, không cần build) + 3 trang pháp lý tĩnh
-test/                Kiểm thử: node --test (rating, matchmaking, store, server, auth, cờ úp…)
+test/                Kiểm thử: node --test (rating, matchmaking, presence, store, server, auth, cờ úp…)
 ```
 
 ## Đăng nhập Google / Facebook (tuỳ chọn)
