@@ -14,17 +14,15 @@
     '<li>Được ăn quân đang úp – quân bị ăn sẽ lộ mặt.</li>' +
     '<li>Không ai biết quân úp là gì, kể cả người cầm quân. Chiếu, chiếu bí, lộ mặt tướng, cấm chiếu dai… như cờ tướng.</li></ul>' +
     '<div class="row"><button class="btn primary" data-act="modal-close">Đã hiểu</button></div>';
-  var ZELLE = { name: 'Huy Dinh', email: 'huydinhvn1@gmail.com', phone: '[removed]', phoneRaw: '[removed]' };
+  var ZELLE = { name: 'Huy Dinh', email: 'huydinhvn1@gmail.com' };
   ZELLE.emailHtml = 'huydinhvn1<wbr>@gmail.com';
   var DONATE = '<div class="donate-heart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4 7 4c2.1 0 3.6 1.1 5 2.9C13.4 5.1 14.9 4 17 4c4 0 6.1 4.2 4.6 7.7C19.5 16.4 12 21 12 21z"/></svg></div><h3 class="donate-title">Ủng hộ tác giả qua Zelle</h3>' +
     '<p class="donate-lead">Nếu bạn thấy vui khi chơi, mọi sự ủng hộ đều rất quý. Cảm ơn bạn rất nhiều!<span lang="en">Support the author via Zelle – thank you!</span></p>' +
     '<div class="zelle-box"><div class="zelle-to"><span class="k">Người nhận · Recipient</span><b>' + ZELLE.name + '</b></div>' +
     '<div class="zelle-row"><span class="k">Email Zelle</span><span class="v" id="zelleEmail">' + ZELLE.emailHtml + '</span>' +
-    '<button class="btn" type="button" data-act="copyval" data-copy="' + ZELLE.email + '" data-what="email"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span></button></div>' +
-    '<div class="zelle-row"><span class="k">Số điện thoại Zelle</span><span class="v" id="zellePhone">' + ZELLE.phone + '</span>' +
-    '<button class="btn" type="button" data-act="copyval" data-copy="' + ZELLE.phoneRaw + '" data-what="số điện thoại"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span></button></div></div>' +
-    '<ol class="donate-steps"><li>Mở <b>app ngân hàng Mỹ</b> của bạn → chọn <b>Zelle</b>.</li><li>Gửi tới email hoặc số điện thoại ở trên, tên người nhận <b>Huy Dinh</b>.</li></ol>' +
-    '<p class="donate-en" lang="en">Open your US bank app → Zelle → send to the email or phone number above (recipient: Huy Dinh).</p>' +
+    '<button class="btn" type="button" data-act="copyval" data-copy="' + ZELLE.email + '" data-what="email"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span></button></div></div>' +
+    '<ol class="donate-steps"><li>Mở <b>app ngân hàng Mỹ</b> của bạn → chọn <b>Zelle</b>.</li><li>Gửi tới email ở trên, tên người nhận <b>Huy Dinh</b>.</li></ol>' +
+    '<p class="donate-en" lang="en">Open your US bank app → Zelle → send to the email above (recipient: Huy Dinh).</p>' +
     '<p class="donate-note">Zelle chỉ dùng được với tài khoản ngân hàng tại Mỹ. Trang này không xử lý thanh toán. <span lang="en">Zelle works only with US bank accounts; this site does not process payments.</span></p>' +
     '<div class="row"><button class="btn primary" data-act="modal-close">Đóng</button></div>';
   /** Sao chép vào clipboard; trình duyệt cũ / không cho phép thì dùng textarea ẩn + execCommand */

@@ -523,7 +523,6 @@ a.btn.primary { color: #2a1a0c; }
 }
 .zelle-row .k { grid-area: k; }
 .zelle-row .v { grid-area: v; display: block; font-size: 17px; font-weight: 700; color: var(--ink); overflow-wrap: anywhere; -webkit-user-select: all; user-select: all; letter-spacing: .2px; }
-#zellePhone { white-space: nowrap; }
 .zelle-row .btn { grid-area: btn; min-height: 34px; padding: 6px 11px; font-size: 13.5px; gap: 5px; border-radius: 10px; }
 .zelle-row .btn svg { width: 15px; height: 15px; }
 .zelle-row .btn.copied { color: #9fe3a8; border-color: rgba(120, 210, 130, .4); }
