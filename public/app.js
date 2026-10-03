@@ -582,6 +582,7 @@
       case 'state': applyRoom(m); break;
       case 'chat_history': $('#chatList').innerHTML = ''; setUnread(0); m.messages.forEach(function (x) { addChatMsg(x, true); }); break;
       case 'chat': addChatMsg(m.message); break;
+      case 'account': if (m.user && Account.user && m.user.id === Account.user.id) { Account.user = m.user; renderAccount(); } break;
       case 'toast': toast(m.text); Sound.play('notify'); break;
       case 'error':
         toast(m.text, true);
@@ -760,7 +761,7 @@
     Net.send({ type: 'join', roomId: id });
   }
   function askNameThen(cb) {
-    if (myName) return cb();
+    if (myName || Account.user) return cb(); // đã đăng nhập: dùng tên tài khoản
     openModal('<div class="piece big-piece r" style="left:auto;top:auto"><span>帥</span></div><h3>Bạn tên gì?</h3><p>Tên sẽ hiển thị với đối thủ trong phòng.</p>' +
       '<input id="modalName" maxlength="24" value="' + esc(defaultName()) + '"><div class="row"><button class="btn primary" id="nameOk">Vào phòng</button></div>');
     $('#modal').dataset.lock = '1';
@@ -789,7 +790,7 @@
   });
   $('#nameInput').value = myName;
   $('#nameInput').addEventListener('change', function () { setName(this.value.trim() || defaultName()); });
-  function ensureName() { var v = $('#nameInput').value.trim(); if (v !== myName || !myName) setName(v || defaultName()); }
+  function ensureName() { if (Account.user) return; var v = $('#nameInput').value.trim(); if (v !== myName || !myName) setName(v || defaultName()); }
   $('#createBtn').onclick = function () {
     Sound.init(); ensureName();
     if (S.mode === 'ai') resetWorker();
@@ -810,9 +811,52 @@
     if ($('#resumeRoom')) $('#resumeRoom').onclick = function () { joinRoomById(last); };
   }
 
+  // ---------- Tài khoản (Google / Facebook – tuỳ chọn; khách vẫn chơi bình thường) ----------
+  var Account = { user: null, providers: {} };
+  var BRAND = {
+    google: '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>',
+    facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/></svg>'
+  };
+  function renderAccount() {
+    var box = $('#account'), u = Account.user, p = Account.providers || {};
+    $('#nameField').hidden = !!u;
+    if (u) {
+      var initial = esc((u.name || '?').trim().charAt(0).toUpperCase());
+      box.innerHTML = '<div class="acc-user">' +
+        '<span class="acc-avatar">' + (u.avatar ? '<img src="' + esc(u.avatar) + '" alt="" referrerpolicy="no-referrer">' : '') + '<i>' + initial + '</i></span>' +
+        '<div class="acc-info"><b>' + esc(u.name) + '</b><span class="acc-stats">Thắng <em>' + (u.wins | 0) + '</em> · Thua <em>' + (u.losses | 0) + '</em> · Hoà <em>' + (u.draws | 0) + '</em></span></div>' +
+        '<button class="btn acc-out" id="logoutBtn" type="button">Đăng xuất</button></div>';
+      var img = box.querySelector('img'); if (img) img.onerror = function () { img.remove(); };
+      $('#logoutBtn').onclick = function () {
+        this.disabled = true;
+        fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' }).then(function () { location.reload(); }, function () { location.reload(); });
+      };
+      box.hidden = false;
+      return;
+    }
+    var next = encodeURIComponent(location.pathname || '/'), btns = '';
+    if (p.google) btns += '<a class="acc-btn google" href="/auth/google?next=' + next + '">' + BRAND.google + '<span>Đăng nhập Google</span></a>';
+    if (p.facebook) btns += '<a class="acc-btn facebook" href="/auth/facebook?next=' + next + '">' + BRAND.facebook + '<span>Đăng nhập Facebook</span></a>';
+    box.innerHTML = btns ? '<div class="acc-guest"><span class="acc-status"><i></i>Chơi với tư cách khách</span><div class="acc-btns">' + btns + '</div></div>' : '';
+    box.hidden = !btns; // không bật nhà cung cấp nào -> sảnh giữ nguyên như cũ
+  }
+  function loadAccount() {
+    var done = fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j) { Account.user = j.user || null; Account.providers = j.providers || {}; } renderAccount(); })
+      .catch(function () { renderAccount(); });
+    return Promise.race([done, new Promise(function (res) { setTimeout(res, 2500); })]);
+  }
+  (function loginError() {
+    var m = /[?&]login_error=(google|facebook)/.exec(location.search);
+    if (!m) return;
+    toast('Đăng nhập ' + (m[1] === 'google' ? 'Google' : 'Facebook') + ' không thành công. Bạn vẫn có thể chơi với tư cách khách.', true);
+    history.replaceState(history.state, '', location.pathname);
+  })();
+
   // ---------- Khởi động ----------
   renderGrid();
   Net.connect();
-  route();
+  loadAccount().then(route);
   window.__ct = S; // tiện cho kiểm thử
 })();

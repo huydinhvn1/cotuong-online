@@ -33,7 +33,9 @@
     <div class="hero-text">
       <h1>Cờ Tướng <span>Online</span></h1>
       <p>Thách đấu bạn bè chỉ với một đường link, hoặc rèn luyện cùng máy với 5 cấp độ. Không cần đăng ký.</p>
-      <label class="name-field">
+      <!-- Tài khoản (chỉ hiện khi server bật đăng nhập Google/Facebook) -->
+      <div class="account" id="account" hidden></div>
+      <label class="name-field" id="nameField">
         <span>Tên của bạn</span>
         <input id="nameInput" maxlength="24" autocomplete="nickname" placeholder="Nhập tên…">
       </label>

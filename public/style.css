@@ -97,6 +97,30 @@ input { font: inherit; }
 .hero h1 { font-size: clamp(36px, 6vw, 62px); line-height: 1.05; margin: 0 0 14px; font-weight: 800; letter-spacing: -1px; }
 .hero h1 span { background: linear-gradient(90deg, var(--gold2), #e3793a); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .hero p { color: var(--muted); font-size: 17px; line-height: 1.6; max-width: 520px; margin: 0 0 22px; }
+/* Tài khoản */
+.account { max-width: 520px; margin: 0 0 18px; }
+.acc-guest { display: flex; flex-direction: column; gap: 10px; }
+.acc-status { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--muted); }
+.acc-status i { width: 8px; height: 8px; border-radius: 50%; background: #8a7a66; box-shadow: 0 0 0 3px rgba(138, 122, 102, .2); }
+.acc-btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 228px), 1fr)); gap: 10px; }
+.acc-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 46px; padding: 10px 14px; border-radius: 12px;
+  font-weight: 600; font-size: 15px; text-decoration: none; white-space: nowrap; transition: transform .12s, filter .15s;
+}
+.acc-btn:hover { filter: brightness(1.06); } .acc-btn:active { transform: scale(.98); }
+.acc-btn svg { width: 20px; height: 20px; flex: none; }
+.acc-btn.google { background: #fff; color: #1f1f1f; border: 1px solid #dadce0; }
+.acc-btn.facebook { background: #1877F2; color: #fff; border: 1px solid #1877F2; }
+.acc-user { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 12px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+.acc-avatar { position: relative; flex: none; width: 46px; height: 46px; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  background: linear-gradient(180deg, var(--gold2), var(--gold)); color: #2a1a0c; font-weight: 800; font-size: 19px; box-shadow: 0 0 0 2px rgba(217, 166, 73, .5); }
+.acc-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.acc-avatar i { font-style: normal; }
+.acc-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.acc-info b { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc-stats { font-size: 13px; color: var(--muted); }
+.acc-stats em { font-style: normal; font-weight: 700; color: var(--ink); }
+.acc-out { flex: none; padding: 9px 13px; font-size: 14px; }
 .name-field { display: flex; flex-direction: column; gap: 7px; max-width: 360px; }
 .name-field span, .field > span { font-size: 12.5px; font-weight: 600; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); }
 input#nameInput, .join-form input, .chat-form input, .modal input {
