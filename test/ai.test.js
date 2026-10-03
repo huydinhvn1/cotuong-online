@@ -33,89 +33,54 @@ test('AI tự đánh với AI 40 nước không sinh nước sai', () => {
   }
 });
 
-// ---- Luật: máy không được chiếu lặp (chiếu dai) quá 5 lần ----
-const mv = (m) => (m.from << 7) | m.to;
-const afterKey = (fen, from, to) => { const g = new X.Game(fen); g.move(from, to); return g.positions[1]; };
-// Lịch sử giả: n nước chiếu liên tiếp của đỏ (xen nước đen), nước đỏ thứ i dẫn tới thế pos(i)
-const run = (n, pos) => { const h = []; for (let i = 0; i < n; i++) { h.push({ side: 'r', check: true, pos: pos(i) }); h.push({ side: 'b', check: false, pos: 'b' + i }); } return h; };
+// ---- Luật cấm chiếu dai (trong xiangqi.js): máy không bao giờ chọn nước chiếu dai bị cấm ----
+const PERP_PREFIX = [[70, 34], [25, 88], [34, 31], [19, 37], [64, 67], [88, 86]];
+const PERP_CYCLE = [[31, 30], [2, 22], [30, 31], [22, 2]];
 const seeded = (fn) => { const r = Math.random; let s = 4242; Math.random = () => ((s = (s * 1103515245 + 12345) % 2147483648) / 2147483648); try { return fn(); } finally { Math.random = r; } };
 
-test('Đếm số lần lặp thế cờ trong chuỗi chiếu liên tiếp', () => {
-  assert.equal(AI.MAX_CHECK_REPEATS, 5);
-  assert.deepEqual(AI.checkRunPositions([], 'r'), {});
-  assert.deepEqual(AI.checkRunPositions(run(6, i => i % 2 ? 'P' : 'Q'), 'r'), { P: 3, Q: 3 });
-  // một nước không chiếu của đỏ làm đứt chuỗi -> chỉ đếm phần sau
-  const h = run(4, () => 'P').concat([{ side: 'r', check: false, pos: 'x' }, { side: 'b', check: false, pos: 'y' }], run(2, () => 'P'));
-  assert.deepEqual(AI.checkRunPositions(h, 'r'), { P: 2 });
-  // nước chiếu của bên kia không tính
-  assert.deepEqual(AI.checkRunPositions(run(3, () => 'P'), 'b'), {});
-});
-
-test('Chiếu không lặp: không giới hạn số lần', () => {
+test('Máy được chiếu nhiều lần nếu không lặp thế cờ', () => {
   const fen = '3k5/R8/9/9/9/9/9/9/9/4K3R w';
-  const r = AI.bestMove(fen, 3, { history: run(30, i => 'khác-' + i) }); // 30 lần chiếu liên tiếp, mỗi lần một thế khác
+  const hist = []; for (let i = 0; i < 30; i++) { hist.push({ side: 'r', check: true, pos: 'khác-' + i }); hist.push({ side: 'b', check: false, pos: 'b' + i }); }
+  const r = AI.bestMove(fen, 3, { history: hist });
   assert.equal(r.avoidedCheck, false);
   const g = new X.Game(fen); g.move(r.from, r.to);
   assert.equal(g.status().reason, 'checkmate');
 });
 
-test('Chiếu lặp: thế cờ đã lặp 5 lần trong chuỗi chiếu thì không chiếu tạo lại lần thứ 6', () => {
-  // Xe đỏ chiếu dai xe đen: máy cấp 3 (không có luật) sẽ chiếu lặp mãi
-  const fen = '8R/3k5/9/9/9/9/9/9/2r6/4K4 w';
-  const b = X.parseFen(fen).board;
-  const free = seeded(() => AI.bestMove(fen, 3));
-  assert.ok(AI.givesCheck(b.slice(), mv(free), 'r'), 'nước tốt nhất bình thường là nước chiếu');
-  const key = afterKey(fen, free.from, free.to);
-  // đã lặp 4 lần -> vẫn được chiếu tạo lại thế đó (lần thứ 5)
-  const r4 = seeded(() => AI.bestMove(fen, 3, { history: run(4, () => key) }));
-  assert.equal(r4.avoidedCheck, false);
-  // đã lặp 5 lần -> cấm nước đó; nước khác (kể cả chiếu sang thế khác) vẫn được
-  const r5 = seeded(() => AI.bestMove(fen, 3, { history: run(5, () => key) }));
-  assert.equal(r5.avoidedCheck, true);
-  assert.ok(new X.Game(fen).isLegal(r5.from, r5.to));
-  assert.notEqual(afterKey(fen, r5.from, r5.to), key);
-  // chuỗi bị đứt bởi một nước không chiếu -> đếm lại
-  const h = run(5, () => key).concat([{ side: 'r', check: false, pos: 'x' }, { side: 'b', check: false, pos: 'y' }]);
-  assert.equal(seeded(() => AI.bestMove(fen, 3, { history: h })).avoidedCheck, false);
+test('Máy không chọn nước chiếu dai bị cấm (mọi cấp độ)', () => {
+  const g = new X.Game();
+  for (const [f, t] of PERP_PREFIX) g.move(f, t);
+  for (let i = 0; i < 8; i++) g.move(...PERP_CYCLE[i % 4]);
+  assert.equal(g.moveError(...PERP_CYCLE[0]), 'perpetual');
+  for (const lvl of [1, 2, 3, 4]) {
+    const r = AI.bestMove(g.fen(), lvl, { history: g.entries() });
+    assert.equal(g.moveError(r.from, r.to), null, 'cấp ' + lvl + ' chọn nước hợp lệ');
+    assert.notDeepEqual([r.from, r.to], PERP_CYCLE[0]);
+  }
 });
 
-test('Chiếu bí luôn được đi, kể cả khi thế đó đã lặp 5 lần', () => {
-  const fen = '3k5/R8/9/9/9/9/9/9/9/4K3R w';
-  const best = AI.bestMove(fen, 3), key = afterKey(fen, best.from, best.to);
-  const r = AI.bestMove(fen, 3, { history: run(8, () => key) });
-  const g = new X.Game(fen); g.move(r.from, r.to);
-  assert.equal(g.status().reason, 'checkmate');
-  assert.equal(r.avoidedCheck, false);
-});
-
-test('Nếu mọi nước hợp lệ đều bị cấm thì máy vẫn đi', () => {
-  // Mã đỏ (0,8) chỉ còn đúng 1 nước (1,6) và nước đó chiếu (không bí); tướng đỏ bị khoá
+test('Mọi nước đều là chiếu dai bị cấm -> máy không trả nước (ván kết thúc: bên chiếu dai thua)', () => {
   const fen = '4k3N/8b/9/9/9/9/9/9/8r/3K5 w';
-  const b = X.parseFen(fen).board, all = X.legalMovesRaw(b.slice(), 'r');
-  assert.equal(all.length, 1);
-  const key = afterKey(fen, X.sq(0, 8), X.sq(1, 6));
-  assert.ok(AI.isForbiddenRepeatCheck(b.slice(), all[0], 'r', { [key]: 5 }), 'nước duy nhất bị cấm');
-  const r = AI.bestMove(fen, 3, { history: run(6, () => key) });
-  assert.deepEqual([r.from, r.to], [X.sq(0, 8), X.sq(1, 6)]);
+  const g1 = new X.Game(fen); g1.move(X.sq(0, 8), X.sq(1, 6)); const key = g1.positions[1];
+  const hist = [{ side: 'r', check: true, pos: key }, { side: 'b', check: false, pos: 'x' }, { side: 'r', check: true, pos: key }, { side: 'b', check: false, pos: 'y' }];
+  assert.equal(AI.bestMove(fen, 3, { history: hist }), null);
+  assert.ok(AI.bestMove(fen, 3, { history: hist.slice(2) }), 'mới lặp 1 lần thì vẫn đi');
 });
 
-test('Máy tự đánh với máy (bỏ qua luật hoà 3 lần lặp): có luật thì không thế chiếu nào lặp quá 5 lần', () => {
-  const fen = '8R/3k5/9/9/9/9/9/9/2r6/4K4 w';
-  const H = g => g.history.map((r, j) => ({ side: r.side, check: !!r.check, pos: g.positions[j + 1] }));
-  const play = (useRule) => seeded(() => {
-    const g = new X.Game(fen); let maxRep = 0, checks = 0, avoided = 0;
-    for (let i = 0; i < 60; i++) {
-      const st = g.status(); if (st.over && st.reason !== 'repetition') break;
-      const side = g.turn, r = AI.bestMove(g.fen(), 3, useRule ? { history: H(g) } : {});
+test('Máy tự đánh với máy trong thế chiếu dai: không thế chiếu nào lặp lần 3, mọi nước đều hợp lệ', () => {
+  const fen = '8R/3k5/9/9/9/9/9/9/2r6/4K4 w'; // không có luật, máy cấp 3 sẽ chiếu dai mãi
+  seeded(() => {
+    const g = new X.Game(fen); let checks = 0, avoided = 0;
+    for (let i = 0; i < 60 && !g.status().over; i++) {
+      const side = g.turn, r = AI.bestMove(g.fen(), 3, { history: g.entries() });
       if (r.avoidedCheck) avoided++;
+      assert.equal(g.moveError(r.from, r.to), null, 'nước ' + i);
       const rec = g.move(r.from, r.to); assert.ok(rec);
-      if (side === 'r') { if (rec.check) checks++; maxRep = Math.max(maxRep, 0, ...Object.values(AI.checkRunPositions(H(g), 'r'))); }
+      if (side === 'r' && rec.check) checks++;
+      const counts = X.checkRunCounts(g.entries(), side) || {};
+      assert.ok(Object.values(counts).every(c => c < 3), 'không lặp lần 3 (nước ' + i + ')');
     }
-    return { maxRep, checks, avoided };
+    assert.ok(avoided >= 1, 'luật đã phải can thiệp');
+    assert.ok(checks > 5, 'vẫn chiếu nhiều lần (' + checks + ')');
   });
-  const ctrl = play(false), withRule = play(true);
-  assert.ok(ctrl.maxRep > 5, 'đối chứng chiếu lặp ' + ctrl.maxRep + ' lần');
-  assert.ok(withRule.maxRep <= 5, 'có luật: lặp ' + withRule.maxRep + ' lần');
-  assert.ok(withRule.avoided >= 1);
-  assert.ok(withRule.checks > 5, 'vẫn được chiếu nhiều lần (' + withRule.checks + ')');
 });

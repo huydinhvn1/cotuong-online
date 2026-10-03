@@ -179,3 +179,36 @@ test('Chat: người gửi nhận mine=true, người nhận và khán giả nh�
   assert.deepEqual(h.messages.map(m => [m.text, m.mine]), [['xin chào', false], ['hay quá', false]]);
   A.close(); B.close(); C.close(); B2.close();
 });
+
+test('Online: server từ chối nước chiếu dai (lặp thế cờ lần 3) với thông báo tiếng Việt', async () => {
+  const A = new Client('tok-PA', 'Đỏ'), B = new Client('tok-PB', 'Đen');
+  await A.open(); await B.open();
+  A.send({ type: 'create', minutes: 0, increment: 0, color: 'r' });
+  const { roomId } = await A.wait(m => m.type === 'created');
+  B.send({ type: 'join', roomId }); await A.state(r => r.status === 'playing');
+  const seq = [[70, 34], [25, 88], [34, 31], [19, 37], [64, 67], [88, 86]];
+  const cyc = [[31, 30], [2, 22], [30, 31], [22, 2]];
+  for (let i = 0; i < 8; i++) seq.push(cyc[i % 4]);
+  for (let i = 0; i < seq.length; i++) {
+    (i % 2 ? B : A).send({ type: 'move', from: seq[i][0], to: seq[i][1] });
+    await A.state(r => r.moves.length === i + 1);
+  }
+  const before = A.msgs.filter(m => m.type === 'state').pop().room;
+  assert.equal(before.status, 'playing', 'không bị xử hoà dù thế cờ lặp 3 lần (do Đỏ chiếu dai)');
+  // Đỏ chiếu lặp lần 3 -> bị từ chối
+  // đăng ký chờ cả lỗi lẫn trạng thái trước khi gửi (hai tin có thể đến cùng lúc)
+  const pErr = A.wait(m => m.type === 'error'), pState = A.state();
+  A.send({ type: 'move', from: cyc[0][0], to: cyc[0][1] });
+  const err = await pErr;
+  assert.equal(err.text, X.PERPETUAL_MSG);
+  assert.equal(err.text, 'Không được chiếu lặp lại – hãy đổi nước');
+  const after = await pState;
+  assert.equal(after.room.moves.length, seq.length);
+  assert.equal(after.room.fen, before.fen);
+  // đổi nước khác thì được
+  const g = new X.Game(); for (const [f, t] of seq) g.move(f, t);
+  const alt = g.moves().find(m => !(m.from === cyc[0][0] && m.to === cyc[0][1]));
+  A.send({ type: 'move', from: alt.from, to: alt.to });
+  await B.state(r => r.moves.length === seq.length + 1);
+  A.close(); B.close();
+});

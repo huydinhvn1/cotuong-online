@@ -10,7 +10,7 @@
   var REASON = {
     checkmate: 'Chiếu bí', stalemate: 'Hết nước đi (bị vây)', timeout: 'Hết giờ', resign: 'Xin thua',
     agreement: 'Hai bên đồng ý hoà', repetition: 'Lặp lại thế cờ 3 lần', nocapture: '120 nước liên tiếp không ăn quân',
-    insufficient: 'Không còn quân tấn công'
+    insufficient: 'Không còn quân tấn công', perpetual: 'Chiếu dai (chiếu lặp lại) bị cấm – bên chiếu không còn nước khác'
   };
   var ICONS = {
     undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
@@ -205,7 +205,7 @@
   }
   var drag = null;
   function select(sq) {
-    S.selected = sq; S.legal = sq == null ? [] : S.game.movesFrom(sq);
+    S.selected = sq; S.legal = sq == null ? [] : S.game.targetsFrom(sq);
     pieceEls.forEach(function (el, s) { el.classList.toggle('sel', s === sq); });
     renderHints();
   }
@@ -248,6 +248,9 @@
 
   function tryMove(from, to) {
     if (!canMove()) return;
+    if (S.game.moveError(from, to) === 'perpetual') { // luật cấm chiếu dai
+      toast(X.PERPETUAL_MSG, true); S.selected = null; S.legal = []; renderAll(); return;
+    }
     var rec = S.game.move(from, to); if (!rec) return;
     var mv = { from: from, to: to, n: rec.notation, side: rec.side, cap: rec.captured, check: rec.check };
     S.moves.push(mv); S.selected = null; S.legal = []; S.hint = null;
@@ -501,8 +504,8 @@
   }
   function aiThink() {
     S.ai.thinking = true; S.ai.req++; S.ai.minUntil = Date.now() + 450;
-    // gửi lịch sử (bên đi, có chiếu không, thế cờ sau nước đó) để máy không chiếu lặp quá 5 lần
-    var g = S.game, hist = g.history.map(function (r, i) { return { side: r.side, check: !!r.check, pos: g.positions[i + 1] }; });
+    // gửi lịch sử để máy không bao giờ chọn nước chiếu dai bị cấm
+    var hist = S.game.entries();
     getWorker().postMessage({ id: S.ai.req, kind: 'move', fen: S.game.fen(), level: S.ai.level, opts: { history: hist } });
   }
   function aiHint() {
@@ -596,10 +599,13 @@
     S.status = room.status; S.result = room.result; S.pending = room.pending; S.timeControl = room.timeControl;
     S.clocks = room.timeControl ? room.clocks : null; S.running = room.running; S.clockAt = Date.now();
     var localBoardBefore = S.game.board.slice();
-    S.game = new X.Game(room.fen); S.moves = room.moves;
+    // dựng lại ván từ đầu theo danh sách nước để có lịch sử thế cờ (luật cấm chiếu dai); lệch thì dùng FEN
+    var g = new X.Game();
+    for (var i = 0; i < room.moves.length; i++) if (!g.move(room.moves[i].from, room.moves[i].to)) { g = null; break; }
+    S.game = g && g.fen() === room.fen ? g : new X.Game(room.fen); S.moves = room.moves;
     if (newGame || prevColor !== S.myColor) { S.flipped = S.myColor === 'b'; renderGrid(); }
     if (S.selected != null && (!canMove() || X.sideOf(S.game.board[S.selected]) !== S.myColor)) { S.selected = null; S.legal = []; }
-    else if (S.selected != null) S.legal = S.game.movesFrom(S.selected);
+    else if (S.selected != null) S.legal = S.game.targetsFrom(S.selected);
     showView('game');
     store.set('ct_last_room', room.id);
     // âm thanh cho nước đi của đối thủ

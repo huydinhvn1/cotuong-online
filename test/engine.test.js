@@ -138,3 +138,81 @@ test('Lặp lại thế cờ 3 lần = hoà (đơn giản hoá)', () => {
   }
   assert.equal(g.status().reason, 'repetition');
 });
+
+// ---- Luật cấm chiếu dai (chiếu lặp lại) ----
+// Từ thế ban đầu: 6 nước dẫn tới thế Đỏ có thể chiếu dai bằng Pháo (Pt-6 / P6-5), Đen đỡ bằng Tượng
+const PERP_PREFIX = [[70, 34], [25, 88], [34, 31], [19, 37], [64, 67], [88, 86]];
+const PERP_CYCLE = [[31, 30], [2, 22], [30, 31], [22, 2]];
+const perpGame = (cycles) => {
+  const g = new Game();
+  for (const [f, t] of PERP_PREFIX) assert.ok(g.move(f, t));
+  for (let i = 0; i < cycles * 4; i++) { const [f, t] = PERP_CYCLE[i % 4]; assert.ok(g.move(f, t), 'nước chu kỳ ' + i); }
+  return g;
+};
+
+test('Chiếu dai: nước chiếu tạo lại thế cờ lần thứ 3 bị cấm, kèm thông báo tiếng Việt', () => {
+  assert.equal(X.PERPETUAL_MSG, 'Không được chiếu lặp lại – hãy đổi nước');
+  const g = perpGame(2); // đã lặp 2 vòng: thế sau Pt-6 đã có 2 lần
+  // thế đầu chu kỳ đã xuất hiện 3 lần nhưng do Đỏ chiếu liên tục -> không xử hoà
+  assert.equal(g.status().over, false);
+  const [f, t] = PERP_CYCLE[0];
+  assert.equal(g.isPerpetual(f, t), true);
+  assert.equal(g.moveError(f, t), 'perpetual');
+  assert.equal(g.move(f, t), null, 'nước bị từ chối');
+  assert.ok(!g.moves().some(m => m.from === f && m.to === t), 'không có trong danh sách nước hợp lệ');
+  assert.ok(g.targetsFrom(f).includes(t), 'vẫn là ô đích theo luật đi quân (để giao diện báo lý do)');
+  // nước khác (kể cả chiếu sang thế khác) vẫn được
+  assert.ok(g.moves().length > 0);
+  const other = g.moves().find(m => !(m.from === f && m.to === t));
+  assert.equal(g.moveError(other.from, other.to), null);
+  assert.ok(g.move(other.from, other.to));
+});
+
+test('Chiếu dai: lần lặp thứ 2 vẫn được; một nước không chiếu làm đứt chuỗi', () => {
+  const g = perpGame(1);
+  assert.equal(g.moveError(...PERP_CYCLE[0]), null, 'lần thứ 2 vẫn được');
+  // chen một nước không chiếu của Đỏ rồi quay lại -> đếm lại từ đầu
+  const g2 = perpGame(2);
+  const quiet = g2.moves().find(m => { g2.move(m.from, m.to); const ok = !g2.history.at(-1).check; g2.undo(); return ok && g2.board[m.from] === 'P'; });
+  assert.ok(quiet, 'có nước tốt không chiếu');
+  g2.move(quiet.from, quiet.to);
+  assert.equal(g2.status().over, false);
+});
+
+test('Lặp thế cờ không do chiếu dai vẫn xử hoà 3 lần', () => {
+  const g = new Game();
+  for (let i = 0; i < 2; i++) {
+    g.move(sq(9, 1), sq(7, 2)); g.move(sq(0, 1), sq(2, 2));
+    g.move(sq(7, 2), sq(9, 1)); g.move(sq(2, 2), sq(0, 1));
+  }
+  assert.equal(g.status().reason, 'repetition');
+  assert.equal(g.status().winner, null);
+});
+
+test('Chiếu bí luôn được đi dù thế cờ đã lặp', () => {
+  const fen = '3k5/R8/9/9/9/9/9/9/9/4K3R w';
+  const b = X.parseFen(fen).board, m = X.encode(sq(9, 8), sq(0, 8)); // Xe 1 tiến 9 chiếu bí
+  const after = (mv) => { const g = new Game(fen); g.move(X.mFrom(mv), X.mTo(mv)); return g; };
+  assert.equal(after(m).status().reason, 'checkmate');
+  const key = after(m).positions[1];
+  assert.equal(X.isPerpetualMove(b, m, 'r', { [key]: 2 }), false, 'chiếu bí không bị cấm');
+  // nước chiếu thường (không bí) với cùng điều kiện thì bị cấm
+  const m2 = X.encode(sq(1, 0), sq(1, 3)), key2 = after(m2).positions[1];
+  assert.equal(after(m2).status().over, false);
+  assert.equal(X.isPerpetualMove(b, m2, 'r', { [key2]: 2 }), true);
+});
+
+test('Bên chiếu dai không còn nước nào khác -> thua (reason perpetual)', () => {
+  // Mã đỏ (0,8) chỉ còn đúng 1 nước (1,6) và nước đó chiếu (không bí); tướng đỏ bị khoá
+  const fen = '4k3N/8b/9/9/9/9/9/9/8r/3K5 w';
+  const g = new Game(fen);
+  assert.equal(g.moves().length, 1);
+  const g1 = new Game(fen); g1.move(sq(0, 8), sq(1, 6)); const key = g1.positions[1];
+  // giả lập lịch sử: thế sau nước chiếu đó đã có 2 lần trong chuỗi chiếu của Đỏ
+  g.history = [{ side: 'r', check: true }, { side: 'b', check: false }, { side: 'r', check: true }, { side: 'b', check: false }];
+  g.positions = ['s', key, 'x', key, g.positions[0]];
+  assert.equal(g.moveError(sq(0, 8), sq(1, 6)), 'perpetual');
+  assert.deepEqual(g.moves(), []);
+  const st = g.status();
+  assert.deepEqual([st.over, st.winner, st.reason], [true, 'b', 'perpetual']);
+});

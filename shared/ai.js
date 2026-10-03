@@ -174,37 +174,8 @@
     return c;
   }
 
-  // Luật cho máy: không chiếu lặp (chiếu dai) – trong chuỗi nước chiếu liên tiếp hiện tại của máy,
-  // một thế cờ (bàn cờ + bên đi) đã xuất hiện MAX_CHECK_REPEATS lần sau nước chiếu của máy thì không được
-  // chiếu để tạo lại thế đó lần nữa. Nước chiếu không lặp: không giới hạn. Nước chiếu bí: luôn được đi.
-  var MAX_CHECK_REPEATS = 5;
-  function posKey(b, turn) { return X.boardFen(b) + turn; }
-  /** Đếm số lần mỗi thế cờ xuất hiện sau các nước chiếu trong chuỗi chiếu liên tiếp gần nhất của side.
-   *  history: [{side, check, pos}] theo thứ tự ván (pos = boardFen + bên đi sau nước đó). Nước của đối phương
-   *  ở giữa không làm đứt chuỗi; một nước không chiếu của side thì đứt. */
-  function checkRunPositions(history, side) {
-    var counts = {};
-    for (var i = (history || []).length - 1; i >= 0; i--) {
-      var h = history[i];
-      if (!h || h.side !== side) continue;
-      if (!h.check) break;
-      if (h.pos) counts[h.pos] = (counts[h.pos] || 0) + 1;
-    }
-    return counts;
-  }
-  /** Nước m (của side) có bị cấm theo luật chiếu lặp không */
-  function isForbiddenRepeatCheck(b, m, side, counts) {
-    var opp = side === 'r' ? 'b' : 'r', f = mFrom(m), t = mTo(m), cap = b[t], res = false;
-    b[t] = b[f]; b[f] = '';
-    if (inCheck(b, opp) && (counts[posKey(b, opp)] || 0) >= MAX_CHECK_REPEATS) {
-      res = X.legalMovesRaw(b, opp).length > 0; // chiếu bí thì luôn được phép
-    }
-    b[f] = b[t]; b[t] = cap;
-    return res;
-  }
-
-  /** Tìm nước tốt nhất. opts (tuỳ chọn): {forbid: function(b, m, side) -> true nếu nước bị cấm}.
-   *  Nếu mọi nước đều bị cấm thì vẫn đi được. Trả về {from,to,score,depth,nodes,avoidedCheck} */
+  /** Tìm nước tốt nhất. opts (tuỳ chọn): {forbid: function(b, m, side) -> true nếu nước bị cấm (chiếu dai)}.
+   *  Trả về {from,to,score,depth,nodes,avoidedCheck} hoặc null nếu không còn nước hợp lệ */
   Searcher.prototype.search = function (board, side, opts) {
     var b = board.slice();
     this.deadline = Date.now() + this.timeMs;
@@ -213,8 +184,8 @@
     var avoided = false;
     if (opts && opts.forbid) {
       var ok = root.filter(function (m) { return !opts.forbid(b, m, side); });
-      if (ok.length && ok.length < root.length) { root = ok; avoided = true; }
-      // mọi nước đều bị cấm -> vẫn cho đi
+      if (!ok.length) return null; // mọi nước đều là chiếu dai bị cấm -> bên này thua (Game.status báo 'perpetual')
+      if (ok.length < root.length) { root = ok; avoided = true; }
     }
     var opp = side === 'r' ? 'b' : 'r';
     var bestMove = root[0], bestScore = -MATE, doneDepth = 0, self = this;
@@ -247,19 +218,18 @@
     5: { name: 'Đại sư', depth: 8, timeMs: 6000, noise: 0 }
   };
 
-  /** opts (tuỳ chọn): {history: [{side, check, pos}]} – lịch sử nước đi để áp luật không chiếu lặp quá 5 lần. */
+  /** opts (tuỳ chọn): {history: [{side, check, pos}]} – lịch sử nước đi (Game.entries()) để máy không bao giờ
+   *  chọn nước chiếu dai bị cấm (luật trong xiangqi.js). */
   function bestMove(fen, level, opts) {
     var s = X.parseFen(fen);
     var cfg = LEVELS[level] || LEVELS[3];
-    var counts = checkRunPositions(opts && opts.history, s.turn), any = false;
-    for (var k in counts) if (counts[k] >= MAX_CHECK_REPEATS) { any = true; break; }
-    var forbid = any ? function (b, m, side) { return isForbiddenRepeatCheck(b, m, side, counts); } : null;
+    var counts = X.checkRunCounts(opts && opts.history, s.turn);
+    var forbid = counts ? function (b, m, side) { return X.isPerpetualMove(b, m, side, counts); } : null;
     return new Searcher(cfg).search(s.board, s.turn, { forbid: forbid });
   }
 
   return {
     bestMove: bestMove, evaluate: evaluate, Searcher: Searcher, LEVELS: LEVELS, MATE: MATE,
-    givesCheck: givesCheck, posKey: posKey, checkRunPositions: checkRunPositions,
-    isForbiddenRepeatCheck: isForbiddenRepeatCheck, MAX_CHECK_REPEATS: MAX_CHECK_REPEATS
+    givesCheck: givesCheck
   };
 });

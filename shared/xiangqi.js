@@ -191,6 +191,41 @@
     return out;
   }
 
+  // ---------- Luật cấm chiếu dai (chiếu lặp lại) ----------
+  // Trong chuỗi nước chiếu liên tiếp không đứt của một bên, nước chiếu tạo lại một thế cờ (bàn cờ + bên đi)
+  // lần thứ 3 bị cấm; bên chiếu phải đổi nước. Nước chiếu bí luôn được phép. Nếu bên đó không còn nước nào khác -> thua.
+  var PERPETUAL_LIMIT = 3, PERPETUAL_MSG = 'Không được chiếu lặp lại – hãy đổi nước';
+  /** Đếm các thế cờ đã có trong chuỗi chiếu hiện tại của side.
+   *  entries: [{side, check, pos}] theo thứ tự ván (pos = boardFen + bên đi sau nước đó).
+   *  Nước của đối phương ở giữa không làm đứt chuỗi; một nước không chiếu của side thì đứt. */
+  function checkRunCounts(entries, side) {
+    var counts = {}, any = false;
+    for (var i = (entries || []).length - 1; i >= 0; i--) {
+      var h = entries[i];
+      if (!h) continue;
+      if (h.side === side && !h.check) break;
+      if (h.side === side && h.pos) { counts[h.pos] = (counts[h.pos] || 0) + 1; if (counts[h.pos] >= PERPETUAL_LIMIT - 1) any = true; }
+    }
+    return any ? counts : null; // null = chắc chắn không có nước nào bị cấm (đường tắt)
+  }
+  /** Nước m của side có phải nước chiếu dai bị cấm không (counts từ checkRunCounts) */
+  function isPerpetualMove(b, m, side, counts) {
+    if (!counts) return false;
+    var opp = side === 'r' ? 'b' : 'r', f = mFrom(m), t = mTo(m), cap = b[t], res = false;
+    b[t] = b[f]; b[f] = '';
+    if ((counts[boardFen(b) + opp] || 0) >= PERPETUAL_LIMIT - 1 && inCheck(b, opp)) {
+      res = legalMovesRaw(b, opp).length > 0; // chiếu bí luôn được phép
+    }
+    b[f] = b[t]; b[t] = cap;
+    return res;
+  }
+  /** Nước hợp lệ có áp luật cấm chiếu dai. entries như checkRunCounts. */
+  function legalMovesRules(b, side, entries) {
+    var raw = legalMovesRaw(b, side), counts = checkRunCounts(entries, side);
+    if (!counts) return raw;
+    return raw.filter(function (m) { return !isPerpetualMove(b, m, side, counts); });
+  }
+
   function perft(b, side, depth) {
     if (depth === 0) return 1;
     var ms = legalMovesRaw(b, side), n = 0;
@@ -247,8 +282,35 @@
     this.quiet = 0; this.quietStack = [];
   }
   Game.prototype.fen = function () { return toFen(this.board, this.turn); };
+  /** Lịch sử dạng [{side, check, pos}] (dùng cho luật chiếu dai) */
+  Game.prototype.entries = function () {
+    var pos = this.positions;
+    return this.history.map(function (r, i) { return { side: r.side, check: !!r.check, pos: pos[i + 1] }; });
+  };
+  Game.prototype.legalRaw = function () { return legalMovesRules(this.board, this.turn, this.entries()); };
   Game.prototype.moves = function () {
-    return legalMovesRaw(this.board, this.turn).map(function (m) { return { from: mFrom(m), to: mTo(m) }; });
+    return this.legalRaw().map(function (m) { return { from: mFrom(m), to: mTo(m) }; });
+  };
+  /** Nước (from,to) là nước chiếu dai bị cấm? (nước vẫn hợp lệ theo luật đi quân) */
+  Game.prototype.isPerpetual = function (from, to) {
+    var p = this.board[from];
+    if (!p || sideOf(p) !== this.turn) return false;
+    var m = encode(from, to);
+    if (legalMovesRaw(this.board, this.turn).indexOf(m) < 0) return false;
+    return isPerpetualMove(this.board, m, this.turn, checkRunCounts(this.entries(), this.turn));
+  };
+  /** Lý do không đi được: null | 'illegal' | 'perpetual' */
+  Game.prototype.moveError = function (from, to) {
+    from = +from; to = +to;
+    if (!(from >= 0 && from < 90 && to >= 0 && to < 90)) return 'illegal';
+    if (this.isPerpetual(from, to)) return 'perpetual';
+    return this.isLegal(from, to) ? null : 'illegal';
+  };
+  /** Các ô đích theo luật đi quân (kể cả nước chiếu dai bị cấm, để giao diện còn báo lý do) */
+  Game.prototype.targetsFrom = function (sq) {
+    var out = [], ms = legalMovesRaw(this.board, this.turn);
+    for (var i = 0; i < ms.length; i++) if (mFrom(ms[i]) === sq) out.push(mTo(ms[i]));
+    return out;
   };
   Game.prototype.movesFrom = function (sq) {
     return this.moves().filter(function (m) { return m.from === sq; }).map(function (m) { return m.to; });
@@ -278,15 +340,26 @@
     this.turn = rec.side; this.positions.pop(); this.quiet = this.quietStack.pop();
     return rec;
   };
+  /** Lặp thế cờ do một bên chiếu liên tục (từ lần xuất hiện đầu của thế key tới nay mọi nước của bên đó đều chiếu)?
+   *  Khi đó không xử hoà 3 lần lặp: bên chiếu dai buộc phải đổi nước (xem isPerpetualMove). */
+  Game.prototype.perpetualCycle = function (key) {
+    var i0 = this.positions.indexOf(key), h = this.history;
+    if (i0 < 0) return false;
+    var made = { r: 0, b: 0 }, all = { r: true, b: true };
+    for (var i = i0; i < h.length; i++) { made[h[i].side]++; if (!h[i].check) all[h[i].side] = false; }
+    return (made.r > 0 && all.r) || (made.b > 0 && all.b);
+  };
   Game.prototype.inCheck = function () { return inCheck(this.board, this.turn); };
   /** Trạng thái ván: {over, winner:'r'|'b'|null, reason, check} */
   Game.prototype.status = function () {
     var check = inCheck(this.board, this.turn);
     if (legalMovesRaw(this.board, this.turn).length === 0)
       return { over: true, winner: other(this.turn), reason: check ? 'checkmate' : 'stalemate', check: check };
+    // còn nước nhưng nước nào cũng là chiếu dai bị cấm -> bên chiếu dai thua
+    if (this.legalRaw().length === 0) return { over: true, winner: other(this.turn), reason: 'perpetual', check: check };
     var key = this.positions[this.positions.length - 1], cnt = 0;
     for (var i = 0; i < this.positions.length; i++) if (this.positions[i] === key) cnt++;
-    if (cnt >= 3) return { over: true, winner: null, reason: 'repetition', check: check };
+    if (cnt >= 3 && !this.perpetualCycle(key)) return { over: true, winner: null, reason: 'repetition', check: check };
     if (this.quiet >= 120) return { over: true, winner: null, reason: 'nocapture', check: check };
     if (!hasAttackers(this.board)) return { over: true, winner: null, reason: 'insufficient', check: check };
     return { over: false, winner: null, reason: null, check: check };
@@ -297,6 +370,8 @@
     sideOf: sideOf, typeOf: typeOf, other: other, notation: notation, inCheck: inCheck,
     legalMovesRaw: legalMovesRaw, perft: perft, findKing: findKing, isAttacked: isAttacked,
     genPseudo: genPseudo, genPieceMoves: genPieceMoves, encode: encode, mFrom: mFrom, mTo: mTo,
+    checkRunCounts: checkRunCounts, isPerpetualMove: isPerpetualMove, legalMovesRules: legalMovesRules,
+    PERPETUAL_LIMIT: PERPETUAL_LIMIT, PERPETUAL_MSG: PERPETUAL_MSG,
     VN_NAME: VN_NAME, VN_LETTER: VN_LETTER, sq: function (r, c) { return r * 9 + c; }
   };
 });

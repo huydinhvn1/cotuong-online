@@ -162,6 +162,10 @@ const handlers = {
     const c = seatOf(room, ws.token);
     if (room.status !== 'playing') return send(ws, { type: 'error', text: 'Ván cờ chưa bắt đầu hoặc đã kết thúc.' });
     if (c !== room.game.turn) return send(ws, { type: 'error', text: 'Chưa đến lượt bạn.' });
+    // kiểm tra trước khi trừ giờ; luật cấm chiếu dai áp dụng cho cả ván online
+    const err = room.game.moveError(m.from, m.to);
+    if (err === 'perpetual') { send(ws, { type: 'error', text: X.PERPETUAL_MSG }); return broadcast(room); }
+    if (err) { send(ws, { type: 'error', text: 'Nước đi không hợp lệ.' }); return broadcast(room); }
     const now = Date.now();
     if (room.timeControl && room.game.history.length > 0) {
       room.clocks[c] -= now - room.turnStart;
