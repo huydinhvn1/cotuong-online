@@ -14,6 +14,38 @@
     '<li>Được ăn quân đang úp – quân bị ăn sẽ lộ mặt.</li>' +
     '<li>Không ai biết quân úp là gì, kể cả người cầm quân. Chiếu, chiếu bí, lộ mặt tướng, cấm chiếu dai… như cờ tướng.</li></ul>' +
     '<div class="row"><button class="btn primary" data-act="modal-close">Đã hiểu</button></div>';
+  var ZELLE = { name: 'Huy Dinh', email: 'huydinhvn1@gmail.com', phone: '[removed]', phoneRaw: '[removed]' };
+  ZELLE.emailHtml = 'huydinhvn1<wbr>@gmail.com';
+  var DONATE = '<div class="donate-heart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4 7 4c2.1 0 3.6 1.1 5 2.9C13.4 5.1 14.9 4 17 4c4 0 6.1 4.2 4.6 7.7C19.5 16.4 12 21 12 21z"/></svg></div><h3 class="donate-title">Ủng hộ tác giả qua Zelle</h3>' +
+    '<p class="donate-lead">Nếu bạn thấy vui khi chơi, mọi sự ủng hộ đều rất quý. Cảm ơn bạn rất nhiều!<span lang="en">Support the author via Zelle – thank you!</span></p>' +
+    '<div class="zelle-box"><div class="zelle-to"><span class="k">Người nhận · Recipient</span><b>' + ZELLE.name + '</b></div>' +
+    '<div class="zelle-row"><span class="k">Email Zelle</span><span class="v" id="zelleEmail">' + ZELLE.emailHtml + '</span>' +
+    '<button class="btn" type="button" data-act="copyval" data-copy="' + ZELLE.email + '" data-what="email"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span></button></div>' +
+    '<div class="zelle-row"><span class="k">Số điện thoại Zelle</span><span class="v" id="zellePhone">' + ZELLE.phone + '</span>' +
+    '<button class="btn" type="button" data-act="copyval" data-copy="' + ZELLE.phoneRaw + '" data-what="số điện thoại"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Sao chép</span></button></div></div>' +
+    '<ol class="donate-steps"><li>Mở <b>app ngân hàng Mỹ</b> của bạn → chọn <b>Zelle</b>.</li><li>Gửi tới email hoặc số điện thoại ở trên, tên người nhận <b>Huy Dinh</b>.</li></ol>' +
+    '<p class="donate-en" lang="en">Open your US bank app → Zelle → send to the email or phone number above (recipient: Huy Dinh).</p>' +
+    '<p class="donate-note">Zelle chỉ dùng được với tài khoản ngân hàng tại Mỹ. Trang này không xử lý thanh toán. <span lang="en">Zelle works only with US bank accounts; this site does not process payments.</span></p>' +
+    '<div class="row"><button class="btn primary" data-act="modal-close">Đóng</button></div>';
+  /** Sao chép vào clipboard; trình duyệt cũ / không cho phép thì dùng textarea ẩn + execCommand */
+  function copyText(text, msg, btn) {
+    var done = function () {
+      toast(msg || 'Đã sao chép');
+      if (btn) { var s = btn.querySelector('span'); if (s) { s.textContent = 'Đã chép'; btn.classList.add('copied'); setTimeout(function () { s.textContent = 'Sao chép'; btn.classList.remove('copied'); }, 1800); } }
+    };
+    var legacy = function () {
+      var t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', '');
+      t.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;font-size:16px';
+      document.body.appendChild(t); t.focus(); t.select(); try { t.setSelectionRange(0, text.length); } catch (e) { }
+      var ok = false; try { ok = document.execCommand('copy'); } catch (e) { }
+      t.remove();
+      if (ok) done(); else toast('Không sao chép được – hãy chép tay: ' + text, true);
+    };
+    try {
+      if (navigator.clipboard && window.isSecureContext !== false) navigator.clipboard.writeText(text).then(done, legacy);
+      else legacy();
+    } catch (e) { legacy(); }
+  }
   function rnd() { try { var a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; } catch (e) { return Math.random(); } }
   function obf(s) { try { return s ? btoa(s.split('').reverse().join('')) : null; } catch (e) { return null; } }
   function deobf(s) { try { return s ? atob(s).split('').reverse().join('') : null; } catch (e) { return null; } }
@@ -465,6 +497,8 @@
     }
     if (act === 'modal-close') { closeModal(); return; }
     if (act === 'jqrules') { openModal(JQ_RULES); return; }
+    if (act === 'donate') { openModal(DONATE); return; }
+    if (act === 'copyval') { copyText(b.dataset.copy, 'Đã sao chép ' + (b.dataset.what || ''), b); return; }
     if (S.mode === 'online') {
       var map = { undo: 'undo_request', draw: 'draw_offer', resign: null, rematch: 'rematch', cancel: 'cancel' };
       if (act === 'resign') { confirmBox('Xin thua ván này?', 'Đối thủ sẽ được tính thắng.', 'Xin thua', function () { Net.send({ type: 'resign' }); }); return; }
@@ -478,13 +512,7 @@
       else if (act === 'new' || act === 'modal-rematch') { closeModal(); startAI(S.ai.level, S.myColor, null, S.variant); }
     }
   });
-  function copy(text, msg) {
-    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () { toast(msg); }, function () {
-      var t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', '');
-      t.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;font-size:16px'; document.body.appendChild(t); t.select();
-      try { document.execCommand('copy'); toast(msg); } catch (e) { toast(text); } t.remove();
-    });
-  }
+  function copy(text, msg) { copyText(text, msg); }
 
   // ---------- Modal ----------
   function openModal(html, kind) { $('#modalCard').innerHTML = html; $('#modal').hidden = false; $('#modal').dataset.kind = kind || ''; }

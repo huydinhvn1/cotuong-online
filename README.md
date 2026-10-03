@@ -33,6 +33,7 @@ npm test           # chạy kiểm thử (luật cờ, AI, server WebSocket)
   - Online: **server giữ mặt thật** của quân úp, trình duyệt chỉ nhận mặt quân khi nó được lật hoặc bị ăn (xem bằng devtools cũng không thấy).
   - Máy chỉ dùng thông tin công khai: quân úp được tính theo giá trị kỳ vọng của các quân còn có thể nằm dưới đó; máy không nhìn mặt quân úp của bên nào.
   - Không áp dụng cho chế độ hai người một máy (bản offline).
+- **Ủng hộ tác giả**: nút ❤ *Ủng hộ* ở thanh trên và link ở chân trang mở hộp hướng dẫn chuyển qua **Zelle** (email huydinhvn1@gmail.com hoặc SĐT[removed], người nhận Huy Dinh), có nút sao chép. Trang không xử lý thanh toán; Zelle chỉ dùng được với tài khoản ngân hàng tại Mỹ.
 - **Tài khoản (tuỳ chọn)**: đăng nhập bằng Google hoặc Facebook để giữ tên và thống kê Thắng/Thua/Hoà. **Không bắt buộc** – khách vẫn nhập tên và chơi như cũ. Nếu server chưa cấu hình nhà cung cấp nào thì sảnh trông y như trước (không hiện khung tài khoản).
 - Giao diện: bàn gỗ, sông 楚河 漢界 (Sở Hà – Hán Giới), quân tròn chữ Hán, đánh dấu nước vừa đi, chấm nước đi hợp lệ, cảnh báo chiếu tướng, kéo-thả hoặc bấm để đi, âm thanh (bật/tắt), xoay bàn, hỗ trợ điện thoại.
 
