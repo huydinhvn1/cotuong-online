@@ -38,15 +38,20 @@ function newRoomId() {
   do { id = Array.from(crypto.randomBytes(6), b => ALPHA[b % ALPHA.length]).join(''); } while (rooms.has(id));
   return id;
 }
+// Kiểu cờ: 'standard' (cờ tướng) | 'jieqi' (cờ úp). Cờ úp: server giữ mặt thật quân úp (game.secret), chỉ gửi quân đã lật.
+const VARIANTS = new Set(['standard', 'jieqi']);
+const secureRand = () => crypto.randomInt(0, 2 ** 31) / 2 ** 31;
+function makeGame(variant) { return variant === 'jieqi' ? X.createGame('jieqi', X.randomDeal(secureRand)) : new X.Game(); }
 const clean = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f]/g, '').trim().slice(0, n);
 
 function createRoom(opts) {
   const minutes = Math.max(0, Math.min(90, +opts.minutes || 0));
   const inc = Math.max(0, Math.min(60, +opts.increment || 0));
+  const variant = VARIANTS.has(opts.variant) ? opts.variant : 'standard';
   const room = {
     id: newRoomId(), createdAt: Date.now(), lastActive: Date.now(),
-    seats: { r: null, b: null }, clients: new Set(),
-    game: new X.Game(), status: 'waiting', result: null, pending: null, chat: [], gameNo: 1,
+    seats: { r: null, b: null }, clients: new Set(), variant,
+    game: makeGame(variant), status: 'waiting', result: null, pending: null, chat: [], gameNo: 1,
     timeControl: minutes ? { base: minutes * 60000, inc: inc * 1000 } : null,
     clocks: { r: minutes * 60000, b: minutes * 60000 }, turnStart: 0,
   };
@@ -77,10 +82,15 @@ function snapshot(room, ws) {
   return {
     type: 'state',
     room: {
-      id: room.id, gameNo: room.gameNo, status: room.status, result: room.result, pending: room.pending,
+      id: room.id, variant: room.variant, gameNo: room.gameNo, status: room.status, result: room.result, pending: room.pending,
       seats: { r: seat('r'), b: seat('b') }, spectators,
       fen: g.fen(), turn: g.turn, check: g.inCheck(),
-      moves: g.history.map(m => ({ from: m.from, to: m.to, n: m.notation, side: m.side, cap: m.captured, check: m.check })),
+      // chỉ thông tin công khai: rv = mặt quân vừa lật, cap = quân bị ăn (quân úp bị ăn được lật ra)
+      moves: g.history.map(m => {
+        const o = { from: m.from, to: m.to, n: m.notation, side: m.side, cap: m.capReal || m.captured, check: m.check };
+        if (m.reveal) o.rv = m.reveal;
+        return o;
+      }),
       timeControl: room.timeControl, clocks: liveClocks(room), running: clockRunning(room),
     },
     you: { color: seatOf(room, ws.token), name: ws.name },
@@ -121,7 +131,7 @@ function startIfReady(room) {
 function newGame(room) {
   // đổi màu cho ván mới
   const r = room.seats.r; room.seats.r = room.seats.b; room.seats.b = r;
-  room.game = new X.Game(); room.result = null; room.pending = null; room.gameNo++;
+  room.game = makeGame(room.variant); room.result = null; room.pending = null; room.gameNo++;
   room.status = 'waiting';
   if (room.timeControl) room.clocks = { r: room.timeControl.base, b: room.timeControl.base };
   startIfReady(room);
@@ -288,17 +298,18 @@ function onMessage(ws, data) {
 }
 
 // Hết giờ & heartbeat & dọn phòng
-setInterval(() => {
+const clockTimer = setInterval(() => {
   for (const room of rooms.values()) {
     const run = clockRunning(room);
     if (run && liveClocks(room)[run] <= 0) { finish(room, X.other(run), 'timeout'); room.clocks[run] = 0; broadcast(room); }
   }
 }, 250);
-setInterval(() => {
+const pingTimer = setInterval(() => {
   for (const ws of wss.clients) { if (!ws.isAlive) { ws.terminate(); continue; } ws.isAlive = false; ws.ping(); }
   const now = Date.now();
   for (const [id, room] of rooms) if (!room.clients.size && now - room.lastActive > 12 * 3600e3) rooms.delete(id);
 }, 25000);
+clockTimer.unref(); pingTimer.unref(); // server.listen giữ tiến trình; cho phép đóng gọn khi kiểm thử trong cùng tiến trình
 
 server.listen(PORT, () => console.log(`Cờ tướng online đang chạy tại http://localhost:${PORT}`));
 module.exports = { server, rooms };

@@ -4,7 +4,25 @@
   var X = window.Xiangqi;
   var $ = function (s) { return document.querySelector(s); };
   var CH = { K: '帥', A: '仕', B: '相', N: '傌', R: '俥', C: '炮', P: '兵', k: '將', a: '士', b: '象', n: '馬', r: '車', c: '砲', p: '卒' };
-  var VAL = { k: 0, r: 9, c: 4.5, n: 4, b: 2, a: 2, p: 1 };
+  var VAL = { k: 0, r: 9, c: 4.5, n: 4, b: 2, a: 2, p: 1, x: 0 };
+  var VARIANT_NAME = { standard: 'Cờ tướng', jieqi: 'Cờ úp' };
+  var JQ_RULES = '<div class="piece big-piece hidden r" style="left:auto;top:auto"><span class="back"></span></div><h3>Luật cờ úp</h3><ul class="jq-rules">' +
+    '<li><b>Tướng</b> đặt ngửa ở chỗ cũ. 15 quân còn lại của mỗi bên được xáo ngẫu nhiên và <b>úp mặt</b> vào 15 vị trí xuất phát.</li>' +
+    '<li>Quân úp đi theo <b>quân vốn đứng ở ô đó</b>: úp ở ô Pháo thì đi như Pháo, ô Mã đi như Mã, ô Sĩ đi như Sĩ (trong cung)…</li>' +
+    '<li>Đi xong nước đầu tiên, quân được <b>lật ngửa</b> và từ đó đi theo mặt thật.</li>' +
+    '<li><b>Sĩ, Tượng</b> đã lật được đi khắp bàn – qua sông, ra khỏi cung (Sĩ vẫn chéo 1 ô; Tượng vẫn chéo 2 ô và bị cản mắt).</li>' +
+    '<li>Được ăn quân đang úp – quân bị ăn sẽ lộ mặt.</li>' +
+    '<li>Không ai biết quân úp là gì, kể cả người cầm quân. Chiếu, chiếu bí, lộ mặt tướng, cấm chiếu dai… như cờ tướng.</li></ul>' +
+    '<div class="row"><button class="btn primary" data-act="modal-close">Đã hiểu</button></div>';
+  function rnd() { try { var a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; } catch (e) { return Math.random(); } }
+  function obf(s) { try { return s ? btoa(s.split('').reverse().join('')) : null; } catch (e) { return null; } }
+  function deobf(s) { try { return s ? atob(s).split('').reverse().join('') : null; } catch (e) { return null; } }
+  /** Tạo ván theo kiểu cờ; cờ úp: dùng chuỗi xáo bài đã lưu nếu hợp lệ, không thì xáo mới */
+  function newGameOf(variant, deal) {
+    if (variant !== 'jieqi') return new X.Game();
+    return X.createGame('jieqi', deal && X.validDeal(deal) ? deal : X.randomDeal(rnd));
+  }
+  function recToMv(rec) { var m = { from: rec.from, to: rec.to, n: rec.notation, side: rec.side, cap: rec.capReal || rec.captured, check: rec.check }; if (rec.reveal) m.rv = rec.reveal; return m; }
   var LEVEL_NAMES = { 1: 'Tập chơi', 2: 'Dễ', 3: 'Vừa', 4: 'Khó', 5: 'Đại sư' };
   var SIDE_NAME = { r: 'Đỏ', b: 'Đen' };
   var REASON = {
@@ -79,7 +97,7 @@
 
   // ================= Trạng thái =================
   var S = {
-    mode: null, game: new X.Game(), moves: [], myColor: null, flipped: false,
+    mode: null, variant: 'standard', game: new X.Game(), moves: [], myColor: null, flipped: false,
     status: 'playing', result: null, pending: null, seats: { r: null, b: null }, spectators: 0,
     clocks: null, running: null, clockAt: 0, timeControl: null, roomId: null, gameNo: 0,
     selected: null, legal: [], hint: null, ai: { level: 3, thinking: false, req: 0 }
@@ -139,9 +157,25 @@
   function makePiece(p, sq) {
     var el = document.createElement('div');
     el.className = 'piece ' + (p < 'a' ? 'r' : 'b');
-    el.innerHTML = '<span>' + CH[p] + '</span>';
-    el.dataset.p = p; posStyle(el, sq);
+    setFace(el, p); posStyle(el, sq);
     piecesEl.appendChild(el); return el;
+  }
+  /** Mặt quân: quân úp (cờ úp) vẽ mặt lưng; anim = hiệu ứng lật quân */
+  function setFace(el, p, anim) {
+    var hid = X.isHidden(p);
+    el.classList.toggle('hidden', hid);
+    el.innerHTML = hid ? '<span class="back"></span>' : '<span>' + CH[p] + '</span>';
+    el.dataset.p = p;
+    if (anim) { el.classList.remove('flip'); void el.offsetWidth; el.classList.add('flip'); }
+  }
+  /** Hai bàn chỉ khác nhau ở chỗ quân úp đã được lật (cùng vị trí, cùng màu) */
+  function onlyReveals(a, b) {
+    for (var i = 0; i < 90; i++) {
+      var x = a[i] || '', y = b[i] || '';
+      if (x === y) continue;
+      if (!x || !y || !X.isHidden(x) || X.sideOf(x) !== X.sideOf(y)) return false;
+    }
+    return true;
   }
   function rebuildPieces(board) {
     piecesEl.innerHTML = ''; pieceEls.clear();
@@ -155,12 +189,14 @@
     else if (!sameBoard(prevBoard, board)) {
       var applied = null;
       if (last) { applied = prevBoard.slice(); applied[last.to] = applied[last.from]; applied[last.from] = ''; }
-      if (applied && sameBoard(applied, board) && pieceEls.has(last.from)) {
+      if (applied && onlyReveals(applied, board) && pieceEls.has(last.from)) {
         var el = pieceEls.get(last.from), cap = pieceEls.get(last.to);
         if (cap) { cap.classList.add('captured-out'); setTimeout(function () { cap.remove(); }, 300); }
         pieceEls.delete(last.from); pieceEls.set(last.to, el); el.classList.remove('drag'); posStyle(el, last.to);
-      } else rebuildPieces(board);
+      } else if (!onlyReveals(prevBoard, board)) rebuildPieces(board);
     }
+    // cờ úp: lật mặt quân vừa đi (hoặc khi server báo mặt thật)
+    pieceEls.forEach(function (el, sq) { if (board[sq] && el.dataset.p !== board[sq]) setFace(el, board[sq], true); });
     prevBoard = board.slice();
     var checkedK = -1;
     if (S.game.inCheck() && !(S.result && S.result.reason === 'resign')) checkedK = X.findKing(board, S.game.turn);
@@ -251,8 +287,8 @@
     if (S.game.moveError(from, to) === 'perpetual') { // luật cấm chiếu dai
       toast(X.PERPETUAL_MSG, true); S.selected = null; S.legal = []; renderAll(); return;
     }
-    var rec = S.game.move(from, to); if (!rec) return;
-    var mv = { from: from, to: to, n: rec.notation, side: rec.side, cap: rec.captured, check: rec.check };
+    var rec = S.game.move(from, to); if (!rec) return; // online cờ úp: chưa biết mặt quân, server sẽ báo khi lật
+    var mv = recToMv(rec);
     S.moves.push(mv); S.selected = null; S.legal = []; S.hint = null;
     soundFor(mv); if (mv.check) flashCheck();
     if (S.mode === 'online') {
@@ -289,7 +325,7 @@
         name = seat ? seat.name : 'Ghế trống';
         online = seat ? seat.online : null;
       }
-      var caps = capturedBy(side).map(function (p) { return '<span class="' + (p < 'a' ? 'r' : 'b') + '">' + CH[p] + '</span>'; }).join('');
+      var caps = capturedBy(side).map(function (p) { return '<span class="' + (p < 'a' ? 'r' : 'b') + '">' + (CH[p] || '?') + '</span>'; }).join('');
       sub = caps ? '<span class="captured">' + caps + '</span>' : '<span>' + (isMe ? 'Bạn · ' : '') + 'Quân ' + SIDE_NAME[side] + '</span>';
       h += '<div class="avatar ' + side + '">' + CH[side === 'r' ? 'K' : 'k'] + '</div>';
       h += '<div class="pinfo"><div class="pname">' + (online !== null ? '<i class="dot' + (online ? ' on' : '') + '" title="' + (online ? 'Đang online' : 'Mất kết nối') + '"></i>' : '') +
@@ -396,14 +432,17 @@
       var tc = S.timeControl ? (S.timeControl.base / 60000) + ' phút' + (S.timeControl.inc ? ' + ' + S.timeControl.inc / 1000 + 's' : '') : 'Không giới hạn';
       h += '<div class="room-head"><div><div class="room-label">Mã phòng</div><div class="room-code">' + S.roomId + '</div></div>' +
         '<button class="icon-btn" data-act="copycode" title="Sao chép mã">' + icon('copy') + '</button></div>';
-      h += '<div class="room-meta"><span>⏱ ' + tc + '</span><span>👁 ' + S.spectators + ' người xem</span><span>Ván #' + S.gameNo + '</span></div>';
+      h += '<div class="room-meta">' + variantTag() + '<span>⏱ ' + tc + '</span><span>👁 ' + S.spectators + ' người xem</span><span>Ván #' + S.gameNo + '</span></div>';
       h += '<div class="share-row"><div class="link">' + esc(roomLink()) + '</div><button class="btn primary" data-act="share">' + icon('share') + 'Mời bạn</button></div>';
     } else if (S.mode === 'ai') {
       h += '<div class="room-head"><div><div class="room-label">Chơi với máy</div><div class="room-code" style="letter-spacing:0;font-size:22px">Cấp ' + LEVEL_NAMES[S.ai.level] + '</div></div>' +
         '<div class="avatar ' + S.myColor + '">' + CH[S.myColor === 'r' ? 'K' : 'k'] + '</div></div>';
-      h += '<div class="room-meta"><span>Bạn cầm quân ' + SIDE_NAME[S.myColor] + '</span><span>Ván được tự lưu</span></div>';
+      h += '<div class="room-meta">' + variantTag() + '<span>Bạn cầm quân ' + SIDE_NAME[S.myColor] + '</span><span>Ván được tự lưu</span></div>';
     }
     el.innerHTML = h;
+  }
+  function variantTag() {
+    return S.variant === 'jieqi' ? '<span class="variant-tag">Cờ úp</span><button class="help-link" type="button" data-act="jqrules">Xem luật</button>' : '<span class="variant-tag std">Cờ tướng</span>';
   }
   function renderAll(forcePieces) {
     renderPieces(forcePieces); renderBars(); renderStatus(); renderOffer(); renderControls(); renderMoves(); renderRoomPanel(); tickClocks();
@@ -420,11 +459,12 @@
     if (act === 'copycode') { copy(S.roomId, 'Đã sao chép mã phòng'); return; }
     if (act === 'share') {
       var url = roomLink();
-      if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) navigator.share({ title: 'Cờ Tướng Online', text: 'Vào chơi cờ tướng với mình nhé! Mã phòng ' + S.roomId, url: url }).catch(function () { });
+      if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) navigator.share({ title: 'Cờ Tướng Online', text: 'Vào chơi ' + (S.variant === 'jieqi' ? 'cờ úp' : 'cờ tướng') + ' với mình nhé! Mã phòng ' + S.roomId, url: url }).catch(function () { });
       else copy(url, 'Đã sao chép link mời – gửi cho bạn bè nhé!');
       return;
     }
     if (act === 'modal-close') { closeModal(); return; }
+    if (act === 'jqrules') { openModal(JQ_RULES); return; }
     if (S.mode === 'online') {
       var map = { undo: 'undo_request', draw: 'draw_offer', resign: null, rematch: 'rematch', cancel: 'cancel' };
       if (act === 'resign') { confirmBox('Xin thua ván này?', 'Đối thủ sẽ được tính thắng.', 'Xin thua', function () { Net.send({ type: 'resign' }); }); return; }
@@ -435,7 +475,7 @@
       if (act === 'undo') aiUndo();
       else if (act === 'hint') aiHint();
       else if (act === 'resign') confirmBox('Xin thua ván này?', '', 'Xin thua', function () { S.status = 'over'; S.result = { winner: X.other(S.myColor), reason: 'resign' }; saveAI(); endGameUI(); });
-      else if (act === 'new' || act === 'modal-rematch') { closeModal(); startAI(S.ai.level, S.myColor); }
+      else if (act === 'new' || act === 'modal-rematch') { closeModal(); startAI(S.ai.level, S.myColor, null, S.variant); }
     }
   });
   function copy(text, msg) {
@@ -497,7 +537,7 @@
       S.ai.thinking = false;
       if (!d.move) return;
       var rec = S.game.move(d.move.from, d.move.to); if (!rec) return;
-      var mv = { from: rec.from, to: rec.to, n: rec.notation, side: rec.side, cap: rec.captured, check: rec.check };
+      var mv = recToMv(rec);
       S.moves.push(mv); soundFor(mv); if (mv.check) flashCheck();
       afterAIModeMove();
     }, wait);
@@ -506,12 +546,13 @@
     S.ai.thinking = true; S.ai.req++; S.ai.minUntil = Date.now() + 450;
     // gửi lịch sử để máy không bao giờ chọn nước chiếu dai bị cấm
     var hist = S.game.entries();
-    getWorker().postMessage({ id: S.ai.req, kind: 'move', fen: S.game.fen(), level: S.ai.level, opts: { history: hist } });
+    // cờ úp: máy chỉ nhận FEN công khai (quân úp = X/x) + số quân còn lại có thể nằm dưới quân úp
+    getWorker().postMessage({ id: S.ai.req, kind: 'move', fen: S.game.fen(), level: S.ai.level, opts: { history: hist, pool: S.game.hiddenPool() } });
   }
   function aiHint() {
     if (!canMove()) return;
     S.ai.req++; toast('Đang tìm nước gợi ý…');
-    getWorker().postMessage({ id: S.ai.req, kind: 'hint', fen: S.game.fen(), level: Math.max(3, Math.min(4, S.ai.level)) });
+    getWorker().postMessage({ id: S.ai.req, kind: 'hint', fen: S.game.fen(), level: Math.max(3, Math.min(4, S.ai.level)), opts: { history: S.game.entries(), pool: S.game.hiddenPool() } });
   }
   function afterAIModeMove() {
     var st = S.game.status();
@@ -530,16 +571,18 @@
     if (g.turn !== S.myColor) aiThink(), renderAll();
   }
   function saveAI() {
-    store.set('ct_ai', JSON.stringify({ level: S.ai.level, human: S.myColor, moves: S.game.history.map(function (h) { return [h.from, h.to]; }), over: isOver(), result: S.result }));
+    store.set('ct_ai', JSON.stringify({ level: S.ai.level, human: S.myColor, variant: S.variant, deal: obf(S.game.deal()),
+      moves: S.game.history.map(function (h) { return [h.from, h.to]; }), over: isOver(), result: S.result }));
   }
-  function startAI(level, human, saved) {
+  function startAI(level, human, saved, variant, deal) {
     resetWorker(); leaveOnline();
     S.mode = 'ai'; S.ai.level = level; S.myColor = human; S.flipped = human === 'b';
-    S.game = new X.Game(); S.moves = []; S.status = 'playing'; S.result = null; S.pending = null;
+    S.variant = variant === 'jieqi' ? 'jieqi' : 'standard';
+    S.game = newGameOf(S.variant, deal); S.moves = []; S.status = 'playing'; S.result = null; S.pending = null;
     S.clocks = null; S.running = null; S.selected = null; S.legal = []; S.hint = null;
     if (saved) saved.forEach(function (m) {
       var rec = S.game.move(m[0], m[1]);
-      if (rec) S.moves.push({ from: rec.from, to: rec.to, n: rec.notation, side: rec.side, cap: rec.captured, check: rec.check });
+      if (rec) S.moves.push(recToMv(rec));
     });
     showView('game'); renderGrid(); renderAll(true);
     if (history.state !== 'ai') history.pushState('ai', '', '/');
@@ -601,10 +644,13 @@
     S.clocks = room.timeControl ? room.clocks : null; S.running = room.running; S.clockAt = Date.now();
     var localBoardBefore = S.game.board.slice();
     // dựng lại ván từ đầu theo danh sách nước để có lịch sử thế cờ (luật cấm chiếu dai); lệch thì dùng FEN
-    var g = new X.Game();
-    for (var i = 0; i < room.moves.length; i++) if (!g.move(room.moves[i].from, room.moves[i].to)) { g = null; break; }
+    // cờ úp: client không có mặt thật quân úp, chỉ dùng mặt quân server báo khi đã lật (rv) / khi bị ăn (cap)
+    S.variant = room.variant === 'jieqi' ? 'jieqi' : 'standard';
+    var g = X.createGame(S.variant);
+    for (var i = 0; i < room.moves.length; i++) { var rm = room.moves[i]; if (!g.move(rm.from, rm.to, { reveal: rm.rv, cap: rm.cap })) { g = null; break; } }
     S.game = g && g.fen() === room.fen ? g : new X.Game(room.fen); S.moves = room.moves;
     if (newGame || prevColor !== S.myColor) { S.flipped = S.myColor === 'b'; renderGrid(); }
+    if (newGame && S.variant === 'jieqi' && room.gameNo === 1 && !room.moves.length) toast('Phòng này chơi Cờ úp – bấm “Xem luật” nếu chưa quen');
     if (S.selected != null && (!canMove() || X.sideOf(S.game.board[S.selected]) !== S.myColor)) { S.selected = null; S.legal = []; }
     else if (S.selected != null) S.legal = S.game.targetsFrom(S.selected);
     showView('game');
@@ -795,19 +841,19 @@
     Sound.init(); ensureName();
     if (S.mode === 'ai') resetWorker();
     S.mode = 'online'; S.roomId = null; S.gameNo = 0; S.moves = []; prevBoard = null; $('#chatList').innerHTML = '';
-    Net.send({ type: 'create', minutes: +segVal('tcSeg'), increment: +segVal('incSeg'), color: segVal('colorSeg') });
+    Net.send({ type: 'create', variant: segVal('variantSeg'), minutes: +segVal('tcSeg'), increment: +segVal('incSeg'), color: segVal('colorSeg') });
   };
   $('#joinForm').addEventListener('submit', function (e) { e.preventDefault(); Sound.init(); ensureName(); joinRoomById($('#codeInput').value); });
-  $('#aiBtn').onclick = function () { Sound.init(); ensureName(); startAI(+segVal('levelSeg'), segVal('aiColorSeg')); };
+  $('#aiBtn').onclick = function () { Sound.init(); ensureName(); startAI(+segVal('levelSeg'), segVal('aiColorSeg'), null, segVal('aiVariantSeg')); };
   function renderResume() {
     var box = $('#resumeBox'), h = '', saved = null;
     try { saved = JSON.parse(store.get('ct_ai', 'null')); } catch (e) { }
     if (saved && !saved.over && saved.moves && saved.moves.length)
-      h += '<div class="resume"><div>Bạn có một ván với máy đang dở · <b>cấp ' + LEVEL_NAMES[saved.level] + '</b> · ' + saved.moves.length + ' nước</div><button class="btn primary" id="resumeAI">Chơi tiếp</button></div>';
+      h += '<div class="resume"><div>Bạn có một ván ' + (saved.variant === 'jieqi' ? '<b>cờ úp</b> ' : '') + 'với máy đang dở · <b>cấp ' + LEVEL_NAMES[saved.level] + '</b> · ' + saved.moves.length + ' nước</div><button class="btn primary" id="resumeAI">Chơi tiếp</button></div>';
     var last = store.get('ct_last_room', '');
     if (last) h += '<div class="resume"><div>Phòng gần nhất: <b>' + esc(last) + '</b></div><button class="btn" id="resumeRoom">Quay lại phòng</button></div>';
     box.innerHTML = h; box.hidden = !h;
-    if ($('#resumeAI')) $('#resumeAI').onclick = function () { startAI(saved.level, saved.human, saved.moves); };
+    if ($('#resumeAI')) $('#resumeAI').onclick = function () { startAI(saved.level, saved.human, saved.moves, saved.variant, deobf(saved.deal)); };
     if ($('#resumeRoom')) $('#resumeRoom').onclick = function () { joinRoomById(last); };
   }
 

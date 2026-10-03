@@ -456,3 +456,36 @@ a.btn.primary { color: #2a1a0c; }
 .legal-nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 18px; margin-top: 22px; font-size: 14px; }
 .legal-nav a { color: var(--muted); text-decoration: none; padding: 8px 2px; }
 .legal-nav a:hover, .legal-nav a[aria-current] { color: var(--gold2); }
+
+/* ---------- Cờ úp ---------- */
+/* Quân úp: mặt lưng gỗ sẫm, viền theo màu quân, hoa văn ô trám ở giữa */
+.piece.hidden {
+  background: radial-gradient(circle at 36% 30%, #e7c58c 0%, #c9955a 48%, #a8733d 85%, #8d5d2e 100%);
+}
+.piece.hidden .back {
+  position: relative; top: 0; width: 58%; height: 58%; border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(255, 240, 210, .55) 0 14%, transparent 15%),
+    repeating-linear-gradient(45deg, rgba(90, 50, 18, .32) 0 1px, transparent 1px 22%),
+    repeating-linear-gradient(-45deg, rgba(90, 50, 18, .32) 0 1px, transparent 1px 22%),
+    radial-gradient(circle at 40% 35%, #d9ab6c, #b27c43);
+  box-shadow: inset 0 0 0 .28cqw currentColor, inset 0 .3cqw .6cqw rgba(60, 30, 5, .35);
+  opacity: .9;
+}
+.piece.hidden::before { opacity: .7; }
+.piece.hidden::after { opacity: .2; }
+.piece.flip { animation: flipIn .42s ease-out; }
+@keyframes flipIn { 0% { transform: rotateY(90deg) scale(1.08); } 60% { transform: rotateY(-12deg) scale(1.04); } 100% { transform: none; } }
+.modal-card .big-piece.hidden .back { width: 58%; height: 58%; }
+.field-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.help-link {
+  border: none; background: none; padding: 4px 0; font: inherit; font-size: 13px; font-weight: 600;
+  text-transform: none; letter-spacing: 0; color: var(--gold2); text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+.room-meta .help-link { padding: 0; font-size: 13px; }
+.variant-tag { color: var(--gold2); font-weight: 700; }
+.variant-tag.std { color: var(--muted); font-weight: 600; }
+.jq-rules { text-align: left; margin: 6px 0 14px; padding-left: 20px; display: grid; gap: 7px; font-size: 15px; line-height: 1.5; color: #e6d8c3; }
+.jq-rules b { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .piece.flip { animation: none; } }
+.modal-card { max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow-y: auto; overscroll-behavior: contain; }

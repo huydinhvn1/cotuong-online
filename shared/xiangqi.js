@@ -2,6 +2,10 @@
  * Cờ tướng – bộ luật (dùng chung cho server Node.js, trình duyệt và Web Worker AI)
  * Bàn cờ: mảng 90 ô, chỉ số = hàng*9 + cột. Hàng 0 ở trên (phía Đen), hàng 9 ở dưới (phía Đỏ).
  * Quân: chữ hoa = Đỏ, chữ thường = Đen. k=Tướng a=Sĩ b=Tượng n=Mã r=Xe c=Pháo p=Tốt
+ * Cờ úp (biến thể "jieqi"): X/x = quân đang úp (chưa biết mặt). Bàn cờ cờ úp có thuộc tính board.jq = true
+ * (FEN thêm chữ "jq"). Quân úp luôn đứng ở ô xuất phát và đi theo quân vốn đứng ở ô đó; sau nước đầu tiên
+ * nó lật ngửa và đi theo mặt thật. Sĩ/Tượng đã lật không bị giới hạn cung/sông (Tượng vẫn bị cản mắt).
+ * Mặt thật của quân úp chỉ nằm trong game.secret (không đếm được, không nằm trong FEN) – server giữ, client không có.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -23,6 +27,7 @@
   function inBounds(r, c) { return r >= 0 && r < 10 && c >= 0 && c < 9; }
   function inPalace(r, c, side) { return c >= 3 && c <= 5 && (side === 'r' ? r >= 7 && r <= 9 : r >= 0 && r <= 2); }
   function onOwnSide(r, side) { return side === 'r' ? r >= 5 : r <= 4; }
+  function isHidden(p) { return p === 'X' || p === 'x'; }
   function encode(from, to) { return (from << 7) | to; }
   function mFrom(m) { return m >> 7; }
   function mTo(m) { return m & 127; }
@@ -42,6 +47,7 @@
       if (board.length !== (r + 1) * 9) throw new Error('FEN không hợp lệ ở hàng ' + r);
     }
     var t = (parts[1] || 'w').toLowerCase();
+    if (parts.slice(2).indexOf('jq') >= 0) board.jq = true;
     return { board: board, turn: (t === 'b') ? 'b' : 'r' };
   }
 
@@ -58,7 +64,37 @@
     }
     return out.join('/');
   }
-  function toFen(board, turn) { return boardFen(board) + ' ' + (turn === 'r' ? 'w' : 'b'); }
+  function toFen(board, turn) { return boardFen(board) + ' ' + (turn === 'r' ? 'w' : 'b') + (board.jq ? ' jq' : ''); }
+  function cloneBoard(b) { var c = b.slice(); if (b.jq) c.jq = true; return c; }
+
+  // ---------- Cờ úp: ô xuất phát ----------
+  var INIT_BOARD = parseFen(INITIAL_FEN).board;
+  /** Loại quân vốn đứng ở ô sq khi bắt đầu ván (của bên side), không tính Tướng; null nếu không phải ô xuất phát */
+  function homeType(sq, side) { var p = INIT_BOARD[sq]; return p && p !== 'k' && p !== 'K' && sideOf(p) === side ? typeOf(p) : null; }
+  /** Loại quân dùng để đi: quân úp -> theo ô xuất phát; quân ngửa -> chính nó */
+  function effType(b, sq) { var p = b[sq]; if (!p) return null; var t = typeOf(p); return t === 'x' ? homeType(sq, sideOf(p)) : t; }
+  var JIEQI_SQUARES = [];
+  (function () {
+    var i; for (i = 0; i < 90; i++) if (homeType(i, 'r')) JIEQI_SQUARES.push(i);
+    for (i = 0; i < 90; i++) if (homeType(i, 'b')) JIEQI_SQUARES.push(i);
+  })();
+  var JIEQI_SET = 'AABBNNRRCCPPPPP';
+  var JIEQI_FEN = (function () {
+    var b = INIT_BOARD.slice();
+    JIEQI_SQUARES.forEach(function (sq) { b[sq] = sideOf(b[sq]) === 'r' ? 'X' : 'x'; });
+    return boardFen(b) + ' w jq';
+  })();
+  /** Xáo bài cờ úp: chuỗi 30 ký tự (15 quân Đỏ theo thứ tự JIEQI_SQUARES[0..14], rồi 15 quân Đen) */
+  function randomDeal(rand) {
+    rand = rand || Math.random;
+    function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rand() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+    return shuffle(JIEQI_SET.split('')).join('') + shuffle(JIEQI_SET.toLowerCase().split('')).join('');
+  }
+  function validDeal(d) {
+    if (typeof d !== 'string' || d.length !== 30) return false;
+    var key = JIEQI_SET.split('').sort().join('');
+    return d.slice(0, 15).split('').sort().join('') === key && d.slice(15).split('').sort().join('') === key.toLowerCase();
+  }
 
   function pushIf(b, side, from, r, c, out, capOnly) {
     if (!inBounds(r, c)) return;
@@ -70,19 +106,21 @@
   /** Sinh nước đi giả hợp lệ (chưa kiểm tra tự chiếu) cho quân ở ô `from`. */
   function genPieceMoves(b, from, out, capOnly) {
     var p = b[from]; if (!p) return out;
-    var side = sideOf(p), t = typeOf(p);
+    var side = sideOf(p), t = typeOf(p), hid = false, free = false;
+    if (t === 'x') { t = homeType(from, side); hid = true; if (!t) return out; } // quân úp đi theo ô xuất phát
+    else if (b.jq) free = true; // cờ úp: Sĩ/Tượng đã lật không bị giới hạn cung/sông
     var r = (from / 9) | 0, c = from % 9, i, nr, nc, d;
     switch (t) {
       case 'k':
         for (i = 0; i < 4; i++) { nr = r + ORTH[i][0]; nc = c + ORTH[i][1]; if (inPalace(nr, nc, side)) pushIf(b, side, from, nr, nc, out, capOnly); }
         break;
       case 'a':
-        for (i = 0; i < 4; i++) { nr = r + DIAG[i][0]; nc = c + DIAG[i][1]; if (inPalace(nr, nc, side)) pushIf(b, side, from, nr, nc, out, capOnly); }
+        for (i = 0; i < 4; i++) { nr = r + DIAG[i][0]; nc = c + DIAG[i][1]; if (free || inPalace(nr, nc, side)) pushIf(b, side, from, nr, nc, out, capOnly); }
         break;
       case 'b':
         for (i = 0; i < 4; i++) {
           nr = r + 2 * DIAG[i][0]; nc = c + 2 * DIAG[i][1];
-          if (!inBounds(nr, nc) || !onOwnSide(nr, side)) continue;
+          if (!inBounds(nr, nc) || (!free && !onOwnSide(nr, side))) continue;
           if (b[(r + DIAG[i][0]) * 9 + c + DIAG[i][1]]) continue; // cản mắt tượng
           pushIf(b, side, from, nr, nc, out, capOnly);
         }
@@ -150,29 +188,48 @@
   function isAttacked(b, sq, side) {
     var r = (sq / 9) | 0, c = sq % 9, enemyRed = side === 'b', i;
     var R = enemyRed ? 'R' : 'r', C = enemyRed ? 'C' : 'c', K = enemyRed ? 'K' : 'k', N = enemyRed ? 'N' : 'n', P = enemyRed ? 'P' : 'p';
+    // cờ úp: quân úp H của đối phương tấn công theo loại quân của ô xuất phát
+    var jq = !!b.jq, H = enemyRed ? 'X' : 'x', es = enemyRed ? 'r' : 'b';
     for (i = 0; i < 4; i++) {
       var dr = ORTH[i][0], dc = ORTH[i][1], nr = r + dr, nc = c + dc, screen = false;
       while (inBounds(nr, nc)) {
         var t = b[nr * 9 + nc];
         if (t) {
-          if (!screen) { if (t === R || (t === K && dc === 0)) return true; screen = true; }
-          else { if (t === C) return true; break; }
+          if (!screen) { if (t === R || (t === K && dc === 0) || (jq && t === H && homeType(nr * 9 + nc, es) === 'r')) return true; screen = true; }
+          else { if (t === C || (jq && t === H && homeType(nr * 9 + nc, es) === 'c')) return true; break; }
         }
         nr += dr; nc += dc;
       }
     }
     for (i = 0; i < 8; i++) {
       var hr = r + HORSE[i][0], hc = c + HORSE[i][1];
-      if (!inBounds(hr, hc) || b[hr * 9 + hc] !== N) continue;
+      if (!inBounds(hr, hc)) continue;
+      var hp = b[hr * 9 + hc];
+      if (hp !== N && !(jq && hp === H && homeType(hr * 9 + hc, es) === 'n')) continue;
       var lr, lc;
       if (Math.abs(HORSE[i][0]) === 2) { lr = hr - HORSE[i][0] / 2; lc = hc; } else { lr = hr; lc = hc - HORSE[i][1] / 2; }
       if (!b[lr * 9 + lc]) return true;
     }
     var pr = r + (enemyRed ? 1 : -1);
-    if (inBounds(pr, c) && b[pr * 9 + c] === P) return true;
+    if (inBounds(pr, c)) { var pp = b[pr * 9 + c]; if (pp === P || (jq && pp === H && homeType(pr * 9 + c, es) === 'p')) return true; }
     if (!onOwnSide(r, enemyRed ? 'r' : 'b')) {
       if (c > 0 && b[r * 9 + c - 1] === P) return true;
       if (c < 8 && b[r * 9 + c + 1] === P) return true;
+    }
+    if (jq) { // cờ úp: Sĩ/Tượng đã lật đi khắp bàn nên cũng có thể chiếu
+      var A = enemyRed ? 'A' : 'a', B = enemyRed ? 'B' : 'b';
+      for (i = 0; i < 4; i++) {
+        var ar = r + DIAG[i][0], ac = c + DIAG[i][1];
+        if (inBounds(ar, ac)) {
+          var ap = b[ar * 9 + ac];
+          if (ap === A || (ap === H && homeType(ar * 9 + ac, es) === 'a' && inPalace(r, c, es))) return true;
+        }
+        var er = r + 2 * DIAG[i][0], ec = c + 2 * DIAG[i][1];
+        if (inBounds(er, ec) && !b[ar * 9 + ac]) {
+          var ep = b[er * 9 + ec];
+          if (ep === B || (ep === H && homeType(er * 9 + ec, es) === 'b' && onOwnSide(r, es))) return true;
+        }
+      }
     }
     return false;
   }
@@ -210,7 +267,7 @@
   }
   /** Nước m của side có phải nước chiếu dai bị cấm không (counts từ checkRunCounts) */
   function isPerpetualMove(b, m, side, counts) {
-    if (!counts) return false;
+    if (!counts || isHidden(b[mFrom(m)])) return false; // nước lật quân luôn tạo thế cờ mới
     var opp = side === 'r' ? 'b' : 'r', f = mFrom(m), t = mTo(m), cap = b[t], res = false;
     b[t] = b[f]; b[f] = '';
     if ((counts[boardFen(b) + opp] || 0) >= PERPETUAL_LIMIT - 1 && inCheck(b, opp)) {
@@ -245,12 +302,12 @@
   function fileNo(c, side) { return side === 'r' ? 9 - c : c + 1; }
 
   function notation(b, from, to) {
-    var p = b[from], side = sideOf(p), t = typeOf(p);
+    var p = b[from], side = sideOf(p), t = effType(b, from);
     var fr = (from / 9) | 0, fc = from % 9, tr = (to / 9) | 0, tc = to % 9;
     var label = VN_LETTER[t];
     // các quân cùng loại, cùng cột (quân "trước"/"sau")
     var same = [];
-    for (var r = 0; r < 10; r++) if (b[r * 9 + fc] === p) same.push(r);
+    for (var r = 0; r < 10; r++) { var q = b[r * 9 + fc]; if (q && sideOf(q) === side && effType(b, r * 9 + fc) === t) same.push(r); }
     if (same.length >= 2 && same.length <= 3 && t !== 'k') {
       same.sort(function (x, y) { return side === 'r' ? x - y : y - x; }); // từ trước ra sau
       var idx = same.indexOf(fr);
@@ -268,6 +325,7 @@
   }
 
   function hasAttackers(b) {
+    if (b.jq) { for (var j = 0; j < 90; j++) if (b[j] && typeOf(b[j]) !== 'k') return true; return false; } // cờ úp: Sĩ/Tượng cũng tấn công được
     for (var i = 0; i < 90; i++) { var t = typeOf(b[i]); if (t === 'r' || t === 'n' || t === 'c' || t === 'p') return true; }
     return false;
   }
@@ -277,7 +335,8 @@
     var s = parseFen(fen || INITIAL_FEN);
     this.startFen = fen || INITIAL_FEN;
     this.board = s.board; this.turn = s.turn;
-    this.history = []; // {from,to,piece,captured,notation,side}
+    this.variant = s.board.jq ? 'jieqi' : 'standard';
+    this.history = []; // {from,to,piece,captured,notation,side,check, reveal?, capReal?}
     this.positions = [boardFen(this.board) + this.turn];
     this.quiet = 0; this.quietStack = [];
   }
@@ -320,12 +379,18 @@
     if (!p || sideOf(p) !== this.turn) return false;
     return this.movesFrom(from).indexOf(to) >= 0;
   };
-  Game.prototype.move = function (from, to) {
+  /** Đi quân. info (chỉ dùng ở client cờ úp không có secret): {reveal: mặt thật quân vừa lật, cap: mặt thật quân úp bị ăn} */
+  Game.prototype.move = function (from, to, info) {
     from = +from; to = +to;
     if (!(from >= 0 && from < 90 && to >= 0 && to < 90) || !this.isLegal(from, to)) return null;
-    var rec = { from: from, to: to, piece: this.board[from], captured: this.board[to] || null,
-                notation: notation(this.board, from, to), side: this.turn };
-    this.board[to] = this.board[from]; this.board[from] = '';
+    var mover = this.board[from], cap = this.board[to] || null, side = this.turn, reveal = null, capReal = null;
+    if (isHidden(mover)) reveal = checkFace(this.secret ? this.secret[from] : info && info.reveal, side);
+    if (cap && isHidden(cap)) capReal = checkFace(this.secret ? this.secret[to] : info && info.cap, other(side));
+    var rec = { from: from, to: to, piece: mover, captured: cap,
+                notation: notation(this.board, from, to) + (reveal ? '(' + VN_LETTER[typeOf(reveal)] + ')' : ''), side: side };
+    if (reveal) rec.reveal = reveal;
+    if (capReal) rec.capReal = capReal;
+    this.board[to] = reveal || mover; this.board[from] = '';
     this.turn = other(this.turn);
     this.quietStack.push(this.quiet);
     this.quiet = rec.captured ? 0 : this.quiet + 1;
@@ -333,6 +398,22 @@
     this.history.push(rec);
     this.positions.push(boardFen(this.board) + this.turn);
     return rec;
+  };
+  function checkFace(p, side) { return typeof p === 'string' && p.length === 1 && 'abnrcpABNRCP'.indexOf(p) >= 0 && sideOf(p) === side ? p : null; }
+  /** Cờ úp: số quân còn có thể nằm dưới các quân úp của mỗi bên – chỉ dùng thông tin công khai
+   *  (bộ quân ban đầu trừ quân đã lật trên bàn và quân đã bị ăn). */
+  Game.prototype.hiddenPool = function () {
+    if (this.variant !== 'jieqi') return null;
+    var pool = { r: { a: 2, b: 2, n: 2, r: 2, c: 2, p: 5 }, b: { a: 2, b: 2, n: 2, r: 2, c: 2, p: 5 } }, i, p;
+    for (i = 0; i < 90; i++) { p = this.board[i]; if (p && !isHidden(p) && typeOf(p) !== 'k') pool[sideOf(p)][typeOf(p)]--; }
+    for (i = 0; i < this.history.length; i++) { p = this.history[i].capReal || this.history[i].captured; if (p && !isHidden(p) && typeOf(p) !== 'k') pool[sideOf(p)][typeOf(p)]--; }
+    ['r', 'b'].forEach(function (s) { for (var k in pool[s]) if (pool[s][k] < 0) pool[s][k] = 0; });
+    return pool;
+  };
+  /** Chuỗi xáo bài (chỉ có khi game giữ secret: server, chơi với máy, hai người một máy) */
+  Game.prototype.deal = function () {
+    var sec = this.secret; if (!sec) return null;
+    return JIEQI_SQUARES.map(function (sq) { return sec[sq]; }).join('');
   };
   Game.prototype.undo = function () {
     var rec = this.history.pop(); if (!rec) return null;
@@ -365,8 +446,23 @@
     return { over: false, winner: null, reason: null, check: check };
   };
 
+  /** Tạo ván: variant 'standard' | 'jieqi'. Cờ úp: deal = chuỗi xáo bài (randomDeal) để biết mặt thật;
+   *  bỏ trống deal -> ván "công khai" (client online), mặt thật lấy từ thông tin server gửi khi quân được lật. */
+  function createGame(variant, deal) {
+    if (variant !== 'jieqi') return new Game();
+    var g = new Game(JIEQI_FEN);
+    if (deal != null) {
+      if (!validDeal(deal)) throw new Error('Chuỗi xáo bài cờ úp không hợp lệ');
+      var sec = []; for (var i = 0; i < 90; i++) sec.push('');
+      JIEQI_SQUARES.forEach(function (sq, k) { sec[sq] = deal[k]; });
+      Object.defineProperty(g, 'secret', { value: sec, enumerable: false, writable: false }); // không lọt vào JSON
+    }
+    return g;
+  }
+
   return {
-    INITIAL_FEN: INITIAL_FEN, Game: Game, parseFen: parseFen, toFen: toFen, boardFen: boardFen,
+    INITIAL_FEN: INITIAL_FEN, Game: Game, createGame: createGame, JIEQI_FEN: JIEQI_FEN, JIEQI_SQUARES: JIEQI_SQUARES,
+    randomDeal: randomDeal, validDeal: validDeal, isHidden: isHidden, homeType: homeType, effType: effType, cloneBoard: cloneBoard, parseFen: parseFen, toFen: toFen, boardFen: boardFen,
     sideOf: sideOf, typeOf: typeOf, other: other, notation: notation, inCheck: inCheck,
     legalMovesRaw: legalMovesRaw, perft: perft, findKing: findKing, isAttacked: isAttacked,
     genPseudo: genPseudo, genPieceMoves: genPieceMoves, encode: encode, mFrom: mFrom, mTo: mTo,

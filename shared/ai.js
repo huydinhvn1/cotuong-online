@@ -1,6 +1,10 @@
 /*
  * AI cờ tướng: negamax alpha-beta + iterative deepening + quiescence,
  * sắp xếp nước MVV-LVA, killer & history heuristic, bảng điểm vị trí (PST).
+ * Cờ úp: máy chỉ dùng thông tin công khai (FEN có X/x cho quân úp + số quân còn lại có thể nằm dưới quân úp).
+ * Quân úp được tính bằng giá trị kỳ vọng của các quân còn có thể nằm dưới đó. Khi một quân úp đi trong cây tìm kiếm,
+ * nó thành quân "đã lật nhưng chưa rõ mặt" (Y/y): giữ giá trị kỳ vọng, chặn đường, có thể bị ăn, nhưng không đi tiếp
+ * trong lượt tìm kiếm đó (máy không bao giờ đoán/nhìn mặt thật).
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./xiangqi'));
@@ -74,16 +78,44 @@
     TABLE[t.toUpperCase()] = red; TABLE[t] = black;
   });
 
-  function evaluate(b, side) {
+  function evaluate(b, side, T) {
+    T = T || TABLE;
     var s = 0;
     for (var i = 0; i < 90; i++) {
       var p = b[i]; if (!p) continue;
-      if (p < 'a') s += TABLE[p][i]; else s -= TABLE[p][i];
+      if (p < 'a') s += T[p][i]; else s -= T[p][i];
     }
     return side === 'r' ? s : -s;
   }
 
+  var PV = {}; 'kabnrcp'.split('').forEach(function (t) { PV[t] = PV[t.toUpperCase()] = VAL[t]; });
   function pieceVal(p) { return VAL[p.toLowerCase()]; }
+
+  // ---------- Cờ úp ----------
+  var JQ_VAL = { a: 250, b: 250, n: 400, r: 900, c: 450, p: 100 }; // Sĩ/Tượng đã lật đi khắp bàn -> đáng giá hơn
+  var FULL_POOL = { a: 2, b: 2, n: 2, r: 2, c: 2, p: 5 };
+  var TOKEN = { X: 'Y', x: 'y' }; // quân úp vừa đi trong cây tìm kiếm
+  /** Giá trị kỳ vọng của một quân úp theo bộ quân còn lại (công khai) */
+  function expectedValue(pool) {
+    pool = pool || FULL_POOL;
+    var n = 0, v = 0;
+    for (var t in JQ_VAL) { var k = Math.max(0, pool[t] | 0); n += k; v += k * JQ_VAL[t]; }
+    return n ? Math.round(v / n) : 0;
+  }
+  function fill(v) { var a = new Array(90); for (var i = 0; i < 90; i++) a[i] = v; return a; }
+  /** Bảng điểm cho cờ úp: T (theo ô) và V (giá trị quân để sắp xếp nước ăn) */
+  function jieqiTables(pool) {
+    var T = {}, V = {}, k;
+    for (k in TABLE) T[k] = TABLE[k];
+    ['a', 'b'].forEach(function (t) { T[t] = fill(JQ_VAL[t]); T[t.toUpperCase()] = fill(JQ_VAL[t]); });
+    var evR = expectedValue(pool && pool.r), evB = expectedValue(pool && pool.b);
+    T.X = fill(evR); T.x = fill(evB);
+    T.Y = fill(evR + 12); T.y = fill(evB + 12); // lật quân = ra quân: thưởng nhẹ
+    for (k in PV) V[k] = PV[k];
+    V.a = V.A = V.b = V.B = JQ_VAL.a;
+    V.X = V.Y = evR; V.x = V.y = evB;
+    return { T: T, V: V };
+  }
 
   function Searcher(opts) {
     this.maxDepth = opts.depth || 3;
@@ -91,6 +123,7 @@
     this.noise = opts.noise || 0;
     this.nodes = 0; this.stop = false;
     this.killers = []; this.history = new Int32Array(128 * 128);
+    this.T = TABLE; this.V = PV;
   }
 
   Searcher.prototype.order = function (b, moves, ply, best) {
@@ -98,7 +131,7 @@
     for (var i = 0; i < moves.length; i++) {
       var m = moves[i], cap = b[mTo(m)], s;
       if (m === best) s = 1e9;
-      else if (cap) s = 1e7 + pieceVal(cap) * 10 - pieceVal(b[mFrom(m)]) / 10;
+      else if (cap) s = 1e7 + this.V[cap] * 10 - this.V[b[mFrom(m)]] / 10;
       else if (m === k[0] || m === k[1]) s = 1e6;
       else s = h[m];
       scores[i] = s;
@@ -115,19 +148,19 @@
 
   Searcher.prototype.quiesce = function (b, side, alpha, beta, ply) {
     if (this.timeUp()) return 0;
-    var stand = evaluate(b, side);
+    var stand = evaluate(b, side, this.T);
     if (stand >= beta) return stand;
     if (stand > alpha) alpha = stand;
     if (ply > 40) return stand;
     var moves = this.order(b, genPseudo(b, side, [], true), ply, -1);
     var opp = side === 'r' ? 'b' : 'r';
     for (var i = 0; i < moves.length; i++) {
-      var f = mFrom(moves[i]), t = mTo(moves[i]), cap = b[t];
+      var f = mFrom(moves[i]), t = mTo(moves[i]), cap = b[t], mover = b[f];
       if (cap === 'k' || cap === 'K') return MATE - ply;
-      b[t] = b[f]; b[f] = '';
-      if (inCheck(b, side)) { b[f] = b[t]; b[t] = cap; continue; }
+      b[t] = TOKEN[mover] || mover; b[f] = '';
+      if (inCheck(b, side)) { b[f] = mover; b[t] = cap; continue; }
       var sc = -this.quiesce(b, opp, -beta, -alpha, ply + 1);
-      b[f] = b[t]; b[t] = cap;
+      b[f] = mover; b[t] = cap;
       if (this.stop) return 0;
       if (sc >= beta) return sc;
       if (sc > alpha) alpha = sc;
@@ -143,12 +176,12 @@
     var moves = this.order(b, genPseudo(b, side, []), ply, -1);
     var opp = side === 'r' ? 'b' : 'r', legal = 0, best = -MATE;
     for (var i = 0; i < moves.length; i++) {
-      var m = moves[i], f = mFrom(m), t = mTo(m), cap = b[t];
-      b[t] = b[f]; b[f] = '';
-      if (inCheck(b, side)) { b[f] = b[t]; b[t] = cap; continue; }
+      var m = moves[i], f = mFrom(m), t = mTo(m), cap = b[t], mover = b[f];
+      b[t] = TOKEN[mover] || mover; b[f] = '';
+      if (inCheck(b, side)) { b[f] = mover; b[t] = cap; continue; }
       legal++;
       var sc = -this.negamax(b, opp, depth - 1, -beta, -alpha, ply + 1);
-      b[f] = b[t]; b[t] = cap;
+      b[f] = mover; b[t] = cap;
       if (this.stop) return 0;
       if (sc > best) best = sc;
       if (sc > alpha) alpha = sc;
@@ -177,7 +210,8 @@
   /** Tìm nước tốt nhất. opts (tuỳ chọn): {forbid: function(b, m, side) -> true nếu nước bị cấm (chiếu dai)}.
    *  Trả về {from,to,score,depth,nodes,avoidedCheck} hoặc null nếu không còn nước hợp lệ */
   Searcher.prototype.search = function (board, side, opts) {
-    var b = board.slice();
+    var b = board.slice(); if (board.jq) b.jq = true;
+    if (board.jq) { var tb = jieqiTables(opts && opts.pool); this.T = tb.T; this.V = tb.V; }
     this.deadline = Date.now() + this.timeMs;
     var root = X.legalMovesRaw(b, side);
     if (!root.length) return null;
@@ -194,10 +228,10 @@
     for (var d = 1; d <= this.maxDepth; d++) {
       var ordered = this.order(b, root, 0, bestMove), alpha = -MATE - 1, curBest = ordered[0], curScore = -MATE - 1;
       for (var i = 0; i < ordered.length; i++) {
-        var m = ordered[i], f = mFrom(m), t = mTo(m), cap = b[t];
-        b[t] = b[f]; b[f] = '';
+        var m = ordered[i], f = mFrom(m), t = mTo(m), cap = b[t], mover = b[f];
+        b[t] = TOKEN[mover] || mover; b[f] = '';
         var sc = -this.negamax(b, opp, d - 1, -MATE - 1, -alpha + (this.noise ? this.noise : 0), 1) + noiseMap[m];
-        b[f] = b[t]; b[t] = cap;
+        b[f] = mover; b[t] = cap;
         if (this.stop) break;
         if (sc > curScore) { curScore = sc; curBest = m; }
         if (sc > alpha) alpha = sc;
@@ -219,17 +253,18 @@
   };
 
   /** opts (tuỳ chọn): {history: [{side, check, pos}]} – lịch sử nước đi (Game.entries()) để máy không bao giờ
-   *  chọn nước chiếu dai bị cấm (luật trong xiangqi.js). */
+   *  chọn nước chiếu dai bị cấm (luật trong xiangqi.js).
+   *  Cờ úp: fen công khai (X/x) + opts.pool = Game.hiddenPool() (thông tin công khai). Máy không nhận mặt thật. */
   function bestMove(fen, level, opts) {
     var s = X.parseFen(fen);
     var cfg = LEVELS[level] || LEVELS[3];
     var counts = X.checkRunCounts(opts && opts.history, s.turn);
     var forbid = counts ? function (b, m, side) { return X.isPerpetualMove(b, m, side, counts); } : null;
-    return new Searcher(cfg).search(s.board, s.turn, { forbid: forbid });
+    return new Searcher(cfg).search(s.board, s.turn, { forbid: forbid, pool: opts && opts.pool });
   }
 
   return {
-    bestMove: bestMove, evaluate: evaluate, Searcher: Searcher, LEVELS: LEVELS, MATE: MATE,
+    bestMove: bestMove, evaluate: evaluate, Searcher: Searcher, LEVELS: LEVELS, MATE: MATE, expectedValue: expectedValue, jieqiTables: jieqiTables,
     givesCheck: givesCheck
   };
 });

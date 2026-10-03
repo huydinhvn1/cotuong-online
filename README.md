@@ -29,6 +29,10 @@ npm test           # chạy kiểm thử (luật cờ, AI, server WebSocket)
 - **F5 / mất mạng không mất ván**: trạng thái phòng giữ trên server, trình duyệt tự kết nối lại và giữ đúng ghế.
 - **Chơi với máy**: AI alpha-beta (iterative deepening, quiescence, bảng điểm vị trí) chạy trong Web Worker. Có gợi ý nước đi, đi lại, ván tự lưu.
 - Ký hiệu nước đi kiểu Việt Nam: `P2-5` (bình), `M8.7` (tiến), `X1/2` (thoái), `Xt.1` / `Xs-8` (quân trước/sau).
+- **Cờ úp** (khi tạo phòng online hoặc chơi với máy, chọn *Kiểu cờ: Cờ úp*): Tướng ngửa ở chỗ cũ, 15 quân còn lại mỗi bên được xáo ngẫu nhiên và úp ở 15 vị trí xuất phát. Quân úp đi theo quân vốn đứng ở ô đó (ô Pháo đi như Pháo, ô Sĩ đi như Sĩ trong cung…), đi xong thì lật ngửa và từ đó đi theo mặt thật. Sĩ/Tượng đã lật được đi khắp bàn (qua sông, ra khỏi cung; Tượng vẫn bị cản mắt). Được ăn quân đang úp, quân bị ăn lộ mặt. Chiếu, chiếu bí, lộ mặt tướng, cấm chiếu dai giữ nguyên. Người vào phòng thấy kiểu cờ ở bảng phòng.
+  - Online: **server giữ mặt thật** của quân úp, trình duyệt chỉ nhận mặt quân khi nó được lật hoặc bị ăn (xem bằng devtools cũng không thấy).
+  - Máy chỉ dùng thông tin công khai: quân úp được tính theo giá trị kỳ vọng của các quân còn có thể nằm dưới đó; máy không nhìn mặt quân úp của bên nào.
+  - Không áp dụng cho chế độ hai người một máy (bản offline).
 - **Tài khoản (tuỳ chọn)**: đăng nhập bằng Google hoặc Facebook để giữ tên và thống kê Thắng/Thua/Hoà. **Không bắt buộc** – khách vẫn nhập tên và chơi như cũ. Nếu server chưa cấu hình nhà cung cấp nào thì sảnh trông y như trước (không hiện khung tài khoản).
 - Giao diện: bàn gỗ, sông 楚河 漢界 (Sở Hà – Hán Giới), quân tròn chữ Hán, đánh dấu nước vừa đi, chấm nước đi hợp lệ, cảnh báo chiếu tướng, kéo-thả hoặc bấm để đi, âm thanh (bật/tắt), xoay bàn, hỗ trợ điện thoại.
 
@@ -38,7 +42,7 @@ npm test           # chạy kiểm thử (luật cờ, AI, server WebSocket)
 server.js            Server Express + WebSocket (ws), quản lý phòng trong bộ nhớ
 lib/auth.js          Đăng nhập Google/Facebook (OAuth code flow, cookie phiên có ký)
 lib/store.js         Lưu người dùng: Postgres (DATABASE_URL) hoặc file JSON (data/users.json)
-shared/xiangqi.js    Bộ luật (dùng chung server + trình duyệt)
+shared/xiangqi.js    Bộ luật cờ tướng + cờ úp (dùng chung server + trình duyệt)
 shared/ai.js         AI (alpha-beta)
 public/              Giao diện (HTML/CSS/JS thuần, không cần build) + 3 trang pháp lý tĩnh
 test/                Kiểm thử: node --test
