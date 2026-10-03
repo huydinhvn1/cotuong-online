@@ -40,7 +40,7 @@ lib/auth.js          Đăng nhập Google/Facebook (OAuth code flow, cookie phi�
 lib/store.js         Lưu người dùng: Postgres (DATABASE_URL) hoặc file JSON (data/users.json)
 shared/xiangqi.js    Bộ luật (dùng chung server + trình duyệt)
 shared/ai.js         AI (alpha-beta)
-public/              Giao diện (HTML/CSS/JS thuần, không cần build)
+public/              Giao diện (HTML/CSS/JS thuần, không cần build) + 3 trang pháp lý tĩnh
 test/                Kiểm thử: node --test
 ```
 
@@ -54,6 +54,12 @@ Mặc định (không đặt biến môi trường nào) app chạy y như cũ: 
 1. Vào https://console.cloud.google.com → tạo (hoặc chọn) một project.
 2. **APIs & Services → OAuth consent screen** (giao diện mới: **Google Auth Platform → Branding / Audience**):
    - User type: **External**, điền tên app (vd "Cờ Tướng Online"), email hỗ trợ, email liên hệ.
+   - **Branding → App domain**:
+     - Application home page: `https://cotuong-online-6qpn.onrender.com/`
+     - Application privacy policy link: `https://cotuong-online-6qpn.onrender.com/chinh-sach-bao-mat`
+     - Application terms of service link: `https://cotuong-online-6qpn.onrender.com/dieu-khoan`
+     - Authorized domains: `cotuong-online-6qpn.onrender.com` (không dùng `onrender.com` vì đây là tên miền công cộng – Public Suffix; nếu có tên miền riêng thì dùng tên miền đó)
+     - Logo: có thể bỏ trống. Tải logo lên thường khiến Google yêu cầu xác minh thương hiệu (có thể cần chứng minh sở hữu tên miền qua Google Search Console).
    - Scopes: chỉ cần `openid` và `profile` (mặc định, không cần xác minh).
    - **Audience → Publish app** (chuyển sang *In production*) để mọi người đăng nhập được; nếu để *Testing* thì chỉ các "Test users" đã thêm mới đăng nhập được.
 3. **APIs & Services → Credentials → Create credentials → OAuth client ID**:
@@ -67,13 +73,25 @@ Mặc định (không đặt biến môi trường nào) app chạy y như cũ: 
 1. Vào https://developers.facebook.com/apps → **Create app** → chọn use case **Authenticate and request data from users with Facebook Login** (Xác thực người dùng bằng Đăng nhập Facebook).
 2. **App settings → Basic**:
    - **App domains**: `cotuong-online-6qpn.onrender.com`
-   - Điền **Privacy Policy URL** (bắt buộc để chuyển sang Live), chọn Category.
+   - **Privacy Policy URL**: `https://cotuong-online-6qpn.onrender.com/chinh-sach-bao-mat` (bắt buộc để chuyển sang Live)
+   - **Terms of Service URL**: `https://cotuong-online-6qpn.onrender.com/dieu-khoan`
+   - **User data deletion** → chọn *Data deletion instructions URL*: `https://cotuong-online-6qpn.onrender.com/xoa-du-lieu`
+   - Chọn Category (vd Games).
    - Chép **App ID** và **App secret**.
 3. **Use cases → Authentication and account creation → Customize → Settings** (hoặc **Facebook Login → Settings**):
    - **Client OAuth login**: Bật · **Web OAuth login**: Bật · **Enforce HTTPS**: Bật
    - **Valid OAuth Redirect URIs**: `https://cotuong-online-6qpn.onrender.com/auth/facebook/callback`
    - Quyền dùng: chỉ `public_profile` (không cần App Review).
 4. Chuyển app từ **Development** sang **Live** (công tắc *App mode* / *Publish*). Khi còn ở Development, chỉ tài khoản có vai trò trong app (Admin/Developer/Tester) đăng nhập được.
+
+### Trang pháp lý có sẵn
+| Trang | Đường dẫn | Bí danh |
+|---|---|---|
+| Chính sách bảo mật | `/chinh-sach-bao-mat` | `/privacy`, `/privacy-policy` |
+| Điều khoản sử dụng | `/dieu-khoan` | `/terms` |
+| Hướng dẫn xoá dữ liệu | `/xoa-du-lieu` | `/data-deletion` |
+
+Nội dung tiếng Việt kèm phần tiếng Anh, liên kết ở chân trang sảnh. Sửa nội dung: các file `public/chinh-sach-bao-mat.html`, `public/dieu-khoan.html`, `public/xoa-du-lieu.html` (email liên hệ: huydinhvn1@gmail.com). Nếu sau này đổi dữ liệu thu thập (vd thêm email) thì phải cập nhật chính sách – `test/legal.test.js` sẽ báo lỗi nếu mã nguồn bắt đầu xin/lưu email.
 
 ### 3. Cơ sở dữ liệu (Supabase – miễn phí)
 Ổ đĩa của Render free bị xoá mỗi lần khởi động lại, nên tài khoản và thống kê cần lưu ở Postgres bên ngoài.
