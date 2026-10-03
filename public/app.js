@@ -137,6 +137,7 @@
     if (variant) { el.insertBefore(vchip(variant), el.firstChild); el.classList.add('has-v'); }
     $('#toasts').appendChild(el); setTimeout(function () { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; }, 2600);
     setTimeout(function () { el.remove(); }, 3000);
+    return el;
   }
 
   /** Nhãn kiểu cờ (màu riêng: Cờ tướng đỏ, Cờ úp xanh) */
@@ -376,7 +377,9 @@
       }
       var caps = capturedBy(side).map(function (p) { return '<span class="' + (p < 'a' ? 'r' : 'b') + '">' + (CH[p] || '?') + '</span>'; }).join('');
       sub = caps ? '<span class="captured">' + caps + '</span>' : '<span>' + (isMe ? 'Bạn · ' : '') + 'Quân ' + SIDE_NAME[side] + '</span>';
-      h += '<div class="avatar ' + side + '">' + CH[side === 'r' ? 'K' : 'k'] + '</div>';
+      var canCard = S.mode === 'ai' || !!seat;
+      h += canCard ? '<button type="button" class="avatar pbtn ' + side + '" data-act="pcard" data-side="' + side + '" title="Thông tin người chơi" aria-label="Thông tin người chơi: ' + esc(name) + '">' + CH[side === 'r' ? 'K' : 'k'] + '</button>'
+        : '<div class="avatar ' + side + '">' + CH[side === 'r' ? 'K' : 'k'] + '</div>';
       h += '<div class="pinfo"><div class="pname">' + (online !== null ? '<i class="dot' + (online ? ' on' : '') + '" title="' + (online ? 'Đang online' : 'Mất kết nối') + '"></i>' : '') +
         esc(name) + (seat && seat.rating != null && S.mode === 'online' ? ' <small class="elo" title="Elo">' + seat.rating + '</small>' : '') +
         (isMe && S.mode === 'online' ? ' <small style="color:var(--gold2);font-weight:600">(bạn)</small>' : '') + '</div><div class="psub">' + sub + '</div></div>';
@@ -517,6 +520,7 @@
     if (act === 'modal-close') { closeModal(); return; }
     if (act === 'jqrules') { openModal(JQ_RULES); return; }
     if (act === 'donate') { openModal(DONATE, 'donate'); return; }
+    if (onDmAction(act, b)) return;
     if (S.mode === 'online') {
       var map = { undo: 'undo_request', draw: 'draw_offer', resign: null, rematch: 'rematch', cancel: 'cancel' };
       if (act === 'resign') { confirmBox('Xin thua ván này?', 'Đối thủ sẽ được tính thắng.', 'Xin thua', function () { Net.send({ type: 'resign' }); }); return; }
@@ -533,8 +537,8 @@
   function copy(text, msg) { copyText(text, msg); }
 
   // ---------- Modal ----------
-  function openModal(html, kind) { $('#modalCard').innerHTML = html; $('#modal').hidden = false; $('#modal').dataset.kind = kind || ''; }
-  function closeModal() { $('#modal').hidden = true; $('#modal').dataset.kind = ''; }
+  function openModal(html, kind) { if (kind !== 'thread') DM.open = null; $('#modalCard').innerHTML = html; $('#modal').hidden = false; $('#modal').dataset.kind = kind || ''; }
+  function closeModal() { $('#modal').hidden = true; $('#modal').dataset.kind = ''; DM.open = null; }
   function showOfferModal(p) {
     var label = { undo: 'xin đi lại nước vừa rồi', draw: 'đề nghị hoà cờ', rematch: 'muốn chơi ván mới (hai bên đổi màu quân)' }[p.type];
     var who = S.seats[p.by] ? S.seats[p.by].name : 'Đối thủ';
@@ -692,6 +696,9 @@
       case 'mm_status': onMMStatus(m); break;
       case 'mm_found': onMMFound(m); break;
       case 'rating': onRating(m); break;
+      case 'dm': onDm(m); break;
+      case 'dm_unread': DM.unread = m.count | 0; renderInboxBadge(); break;
+      case 'dm_error': if (m.cid && m.cid === DM.cid) { DM.busy = false; clearTimeout(DM.busyTimer); renderThreadBlock(); } dmError(m.text); break;
       case 'error':
         toast(m.text, true);
         if (m.code === 'mm_login') mmStop(false);
@@ -937,17 +944,19 @@
     if (u) {
       var initial = esc((u.name || '?').trim().charAt(0).toUpperCase());
       box.innerHTML = '<div class="acc-user">' +
-        '<span class="acc-avatar">' + (u.avatar ? '<img src="' + esc(u.avatar) + '" alt="" referrerpolicy="no-referrer">' : '') + '<i>' + initial + '</i></span>' +
+        '<button type="button" class="acc-avatar" data-act="pcard-me" title="Thông tin người chơi" aria-label="Xem thông tin người chơi của bạn">' + (u.avatar ? '<img src="' + esc(u.avatar) + '" alt="" referrerpolicy="no-referrer">' : '') + '<i>' + initial + '</i></button>' +
         '<div class="acc-info"><b>' + esc(u.name) + '</b><span class="acc-stats">Thắng <em>' + (u.wins | 0) + '</em> · Thua <em>' + (u.losses | 0) + '</em> · Hoà <em>' + (u.draws | 0) + '</em></span>' +
         '<span class="acc-elo" id="accElo">Elo · <span>Cờ tướng <em>' + ratingOf(u, 'standard').rating + '</em></span> · <span>Cờ úp <em>' + ratingOf(u, 'jieqi').rating + '</em></span></span></div>' +
-        '<button class="btn acc-out" id="logoutBtn" type="button">Đăng xuất</button></div>';
+        '<div class="acc-acts"><button class="btn acc-inbox" type="button" data-act="inbox">' + MAIL_SVG + '<span>Tin nhắn</span><i class="badge" id="accInboxBadge" hidden></i></button>' +
+        '<button class="btn acc-out" id="logoutBtn" type="button">Đăng xuất</button></div></div>';
       var img = box.querySelector('img'); if (img) img.onerror = function () { img.remove(); };
       $('#logoutBtn').onclick = function () {
         this.disabled = true;
         fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' }).then(function () { location.reload(); }, function () { location.reload(); });
       };
       box.hidden = false;
-      renderQuick();
+      renderQuick(); renderInboxBadge();
+      if (!DM.loaded) { DM.loaded = true; loadBlocked(); }
       return;
     }
     var next = encodeURIComponent(location.pathname || '/'), btns = '';
@@ -955,7 +964,208 @@
     if (p.facebook) btns += '<a class="acc-btn facebook" href="/auth/facebook?next=' + next + '">' + BRAND.facebook + '<span>Đăng nhập Facebook</span></a>';
     box.innerHTML = btns ? '<div class="acc-guest"><span class="acc-status"><i></i>Chơi với tư cách khách</span><div class="acc-btns">' + btns + '</div></div>' : '';
     box.hidden = !btns; // không bật nhà cung cấp nào -> sảnh giữ nguyên như cũ
-    renderQuick();
+    renderQuick(); renderInboxBadge();
+  }
+
+  // ---------- Thông tin người chơi + tin nhắn riêng ----------
+  var MAIL_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg>';
+  var DM = { unread: 0, blocked: {}, open: null, peer: null, busy: false, cidSeq: 0 };
+  function avatarHtml(p, cls) {
+    var initial = esc(((p && p.name) || '?').trim().charAt(0).toUpperCase() || '?');
+    return '<span class="' + (cls || 'pc-av') + '">' + (p && p.avatar ? '<img src="' + esc(p.avatar) + '" alt="" referrerpolicy="no-referrer" onerror="this.remove()">' : '') + '<i>' + initial + '</i></span>';
+  }
+  function fmtDate(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+  function fmtTime(iso) {
+    var d = new Date(iso); if (isNaN(d)) return '';
+    var now = new Date(), hm = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    return d.toDateString() === now.toDateString() ? hm : ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + ' ' + hm;
+  }
+  function apiJson(url, init) {
+    return fetch(url, Object.assign({ credentials: 'same-origin', cache: 'no-store' }, init || {})).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(j.text || j.error || ('HTTP ' + r.status)); e.status = r.status; throw e; } return j; });
+    });
+  }
+  /** Thẻ "Thông tin người chơi". info = {id?, name, ai?, level?} – có id: tải hồ sơ công khai; không có: khách / máy */
+  function openPlayerCard(info) {
+    info = info || {};
+    var me = Account.user, isMe = !!(me && info.id && info.id === me.id);
+    if (info.ai) {
+      openModal('<div class="pcard">' + '<span class="pc-av ai"><i>' + CH.k + '</i></span><h3 class="pc-name">Máy</h3><div class="pc-kind">Cấp ' + esc(info.level || '') + ' · chơi trên máy của bạn</div>' +
+        '<p class="pc-note">Máy không có Elo hay thống kê.</p><div class="row"><button class="btn primary" data-act="modal-close">Đóng</button></div></div>', 'player');
+      return;
+    }
+    if (!info.id) {
+      openModal('<div class="pcard">' + avatarHtml({ name: info.name }) + '<h3 class="pc-name">' + esc(info.name || 'Khách') + '</h3>' +
+        '<div class="pc-kind"><span class="pc-guest">Khách</span></div>' +
+        '<p class="pc-note">' + (info.self ? 'Bạn đang chơi với tư cách khách – đăng nhập để có Elo, thống kê và nhắn tin.' : 'Người chơi khách không có Elo, thống kê và không nhận tin nhắn.') + '</p>' +
+        '<div class="row"><button class="btn primary" data-act="modal-close">Đóng</button></div></div>', 'player');
+      return;
+    }
+    var token = 'p' + Date.now() + Math.random();
+    openModal('<div class="pcard" data-token="' + token + '">' + avatarHtml({ name: info.name }) + '<h3 class="pc-name">' + esc(info.name || '…') + '</h3><div class="pc-loading">Đang tải thông tin…</div>' +
+      '<div class="row"><button class="btn" data-act="modal-close">Đóng</button></div></div>', 'player');
+    apiJson('/api/players/' + encodeURIComponent(info.id)).then(function (j) {
+      var card = document.querySelector('#modalCard .pcard[data-token="' + token + '"]'); if (!card || $('#modal').hidden) return; // đã đóng / mở hộp khác
+      var p = j.player, prov = p.provider === 'google' ? 'Google' : p.provider === 'facebook' ? 'Facebook' : '';
+      var h = avatarHtml(p) + '<h3 class="pc-name">' + esc(p.name) + (isMe ? ' <small>(bạn)</small>' : '') + '</h3>' +
+        '<div class="pc-kind">' + (BRAND[p.provider] ? '<span class="pc-prov ' + p.provider + '">' + BRAND[p.provider] + '</span>' : '') + 'Đã đăng nhập' + (prov ? ' bằng ' + prov : '') + '</div>' +
+        '<div class="pc-elo">' + ['standard', 'jieqi'].map(function (v) {
+          var r = p.ratings[v] || { rating: 1200, games: 0 };
+          return '<div class="pc-v ' + (v === 'jieqi' ? 'jq' : 'std') + '">' + vchipHtml(v) + '<b>' + (r.rating | 0) + '</b><small>Elo · ' + (r.games | 0) + ' ván xếp hạng</small></div>';
+        }).join('') + '</div>' +
+        '<div class="pc-stats"><div><b>' + p.wins + '</b><span>Thắng</span></div><div><b>' + p.losses + '</b><span>Thua</span></div><div><b>' + p.draws + '</b><span>Hoà</span></div></div>' +
+        '<div class="pc-meta"><span>Ván xếp hạng: <b>' + p.ratedGames + '</b></span><span>Tham gia: <b>' + esc(fmtDate(p.joinedAt)) + '</b></span></div>';
+      if (isMe) h += '<div class="pc-actions"><button class="btn" type="button" data-act="inbox">' + MAIL_SVG + '<span>Tin nhắn của bạn</span></button></div>';
+      else if (!me) h += '<p class="pc-note">Đăng nhập để nhắn tin với người chơi này.</p>';
+      else {
+        var bl = !!DM.blocked[p.id];
+        h += '<div class="pc-actions"><button class="btn primary" type="button" data-act="dm-open" data-peer="' + esc(p.id) + '"' + (bl ? ' disabled' : '') + '>' + MAIL_SVG + '<span>Nhắn tin</span></button>' +
+          '<button class="btn" type="button" data-act="dm-block" data-peer="' + esc(p.id) + '" data-on="' + (bl ? '0' : '1') + '">' + (bl ? 'Bỏ chặn' : 'Chặn') + '</button></div>' +
+          (bl ? '<p class="pc-note">Bạn đã chặn người này – họ không nhắn tin cho bạn được.</p>' : '');
+      }
+      h += '<div class="row"><button class="btn" data-act="modal-close">Đóng</button></div>';
+      card.innerHTML = h; card.dataset.peer = p.id;
+    }).catch(function (e) {
+      var card = document.querySelector('#modalCard .pcard[data-token="' + token + '"]'); if (!card) return;
+      var l = card.querySelector('.pc-loading'); if (l) { l.textContent = e.status === 404 ? 'Không tìm thấy người chơi này.' : 'Không tải được thông tin – thử lại sau.'; l.classList.add('err'); }
+    });
+  }
+  function renderInboxBadge() {
+    var n = DM.unread | 0, on = !!Account.user, t = n > 99 ? '99+' : String(n);
+    $('#inboxBtn').hidden = !on;
+    $('#inboxBadge').hidden = !n; $('#inboxBadge').textContent = t;
+    var ab = $('#accInboxBadge'); if (ab) { ab.hidden = !n; ab.textContent = t; }
+    $('#inboxBtn').setAttribute('aria-label', 'Tin nhắn' + (n ? ' – ' + n + ' chưa đọc' : ''));
+  }
+  function loadBlocked() {
+    if (!Account.user) return;
+    apiJson('/api/messages').then(function (j) { DM.blocked = {}; (j.blocked || []).forEach(function (id) { DM.blocked[id] = true; }); DM.unread = j.unread | 0; renderInboxBadge(); }).catch(function () { });
+  }
+  function openInbox() {
+    DM.open = null;
+    if (!Account.user) {
+      openModal('<h3>Tin nhắn</h3><p>Đăng nhập (Google / Facebook) để nhắn tin riêng với người chơi khác. Khách không gửi / nhận tin nhắn được.</p><div class="row"><button class="btn primary" data-act="modal-close">Đóng</button></div>', 'inbox');
+      return;
+    }
+    openModal('<div class="dm"><div class="dm-head"><h3>Tin nhắn</h3><button class="icon-btn" type="button" data-act="modal-close" aria-label="Đóng">✕</button></div><div class="dm-convs" id="dmConvs"><div class="dm-empty">Đang tải…</div></div></div>', 'inbox');
+    apiJson('/api/messages').then(function (j) {
+      if ($('#modal').dataset.kind !== 'inbox' || !$('#dmConvs')) return;
+      DM.unread = j.unread | 0; DM.blocked = {}; (j.blocked || []).forEach(function (id) { DM.blocked[id] = true; }); renderInboxBadge();
+      var list = j.conversations || [];
+      $('#dmConvs').innerHTML = list.length ? list.map(function (c) {
+        var mine = Account.user && c.last.from === Account.user.id;
+        return '<button type="button" class="dm-conv' + (c.unread ? ' unread' : '') + '" data-act="dm-open" data-peer="' + esc(c.peer.id) + '">' + avatarHtml(c.peer, 'dm-av') +
+          '<span class="dm-cmain"><span class="dm-cname"><b>' + esc(c.peer.name) + '</b>' + (c.blocked ? '<em class="dm-blk">Đã chặn</em>' : '') + '<time>' + esc(fmtTime(c.last.createdAt)) + '</time></span>' +
+          '<span class="dm-snip">' + (mine ? 'Bạn: ' : '') + esc(c.last.body.replace(/\s+/g, ' ')) + '</span></span>' +
+          (c.unread ? '<i class="dm-unread">' + c.unread + '</i>' : '') + '</button>';
+      }).join('') : '<div class="dm-empty">Chưa có tin nhắn nào.<br>Chạm vào ảnh đại diện của người chơi (trong ván hoặc sau khi ghép trận) rồi chọn <b>Nhắn tin</b>.</div>';
+    }).catch(function () { if ($('#dmConvs')) $('#dmConvs').innerHTML = '<div class="dm-empty err">Không tải được hộp thư – thử lại sau.</div>'; });
+  }
+  function dmMsgHtml(m) {
+    var mine = Account.user && m.from === Account.user.id;
+    return '<div class="dm-msg' + (mine ? ' me' : '') + '" data-id="' + (m.id | 0) + '"><div class="dm-bubble">' + esc(m.body) + '</div><time>' + esc(fmtTime(m.createdAt)) + '</time></div>';
+  }
+  function openThread(peerId) {
+    if (!Account.user) { openInbox(); return; }
+    DM.open = peerId; DM.peer = null;
+    openModal('<div class="dm thread"><div class="dm-head"><button class="icon-btn" type="button" data-act="inbox" aria-label="Quay lại hộp thư">‹</button>' +
+      '<button type="button" class="dm-peer" data-act="pcard-id" data-peer="' + esc(peerId) + '"><span class="dm-av"><i>…</i></span><b>Đang tải…</b></button>' +
+      '<button class="btn dm-blockbtn" type="button" data-act="dm-block" data-peer="' + esc(peerId) + '" data-on="1" hidden>Chặn</button>' +
+      '<button class="icon-btn" type="button" data-act="modal-close" aria-label="Đóng">✕</button></div>' +
+      '<div class="dm-list" id="dmList"><div class="dm-empty">Đang tải…</div></div>' +
+      '<form class="dm-form" id="dmForm" autocomplete="off"><div class="dm-blocked" id="dmBlocked" hidden></div><div class="dm-err" id="dmErr" hidden></div>' +
+      '<div class="dm-inrow"><textarea id="dmInput" maxlength="500" rows="1" placeholder="Nhắn tin…" aria-label="Nội dung tin nhắn" enterkeyhint="send"></textarea>' +
+      '<button class="icon-btn solid" type="submit" id="dmSend" aria-label="Gửi" data-icon="send">' + icon('send') + '</button></div><div class="dm-count" id="dmCount">0/500</div></form></div>', 'thread');
+    var input = $('#dmInput');
+    input.addEventListener('input', function () {
+      $('#dmCount').textContent = Array.from(input.value).length + '/500';
+      input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    });
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !('ontouchstart' in window)) { e.preventDefault(); $('#dmForm').requestSubmit ? $('#dmForm').requestSubmit() : sendDm(); } });
+    $('#dmForm').addEventListener('submit', function (e) { e.preventDefault(); sendDm(); });
+    apiJson('/api/messages/' + encodeURIComponent(peerId)).then(function (j) {
+      if (DM.open !== peerId || !$('#dmList')) return;
+      DM.peer = j.peer; DM.blocked[peerId] = !!j.blocked; if (!j.blocked) delete DM.blocked[peerId];
+      var head = document.querySelector('.dm-peer'); head.innerHTML = avatarHtml(j.peer, 'dm-av') + '<b>' + esc(j.peer.name) + '</b>';
+      $('#dmList').innerHTML = j.messages.length ? j.messages.map(dmMsgHtml).join('') : '<div class="dm-empty">Chưa có tin nhắn. Gửi lời chào tới ' + esc(j.peer.name) + ' nhé!</div>';
+      $('#dmList').scrollTop = $('#dmList').scrollHeight;
+      renderThreadBlock();
+      if (!('ontouchstart' in window)) input.focus();
+    }).catch(function (e) { if ($('#dmList')) $('#dmList').innerHTML = '<div class="dm-empty err">' + (e.status === 404 ? 'Không tìm thấy người chơi này.' : 'Không tải được tin nhắn – thử lại sau.') + '</div>'; });
+  }
+  function renderThreadBlock() {
+    if (!$('#dmForm')) return;
+    var bl = !!DM.blocked[DM.open], b = document.querySelector('.dm-blockbtn');
+    if (b) { b.hidden = false; b.textContent = bl ? 'Bỏ chặn' : 'Chặn'; b.dataset.on = bl ? '0' : '1'; }
+    $('#dmBlocked').hidden = !bl; $('#dmBlocked').textContent = bl ? 'Bạn đã chặn người này. Bỏ chặn để nhắn tin.' : '';
+    $('#dmInput').disabled = bl; $('#dmSend').disabled = bl || DM.busy;
+  }
+  function dmError(text) { var e = $('#dmErr'); if (!e) { toast(text, true); return; } e.textContent = text; e.hidden = !text; }
+  function sendDm() {
+    var input = $('#dmInput'); if (!input || DM.busy || !DM.open) return;
+    var body = input.value.trim();
+    if (!body) return;
+    if (Array.from(body).length > 500) { dmError('Tin nhắn tối đa 500 ký tự.'); return; }
+    if (!Net.ready) { dmError('Đang mất kết nối – thử lại sau giây lát.'); return; }
+    DM.busy = true; DM.cid = 'm' + (++DM.cidSeq); $('#dmSend').disabled = true; dmError('');
+    Net.send({ type: 'dm_send', to: DM.open, body: body, cid: DM.cid });
+    clearTimeout(DM.busyTimer); DM.busyTimer = setTimeout(function () { if (DM.busy) { DM.busy = false; renderThreadBlock(); dmError('Gửi chưa được – thử lại.'); } }, 8000);
+  }
+  function onDm(m) {
+    var me = Account.user; if (!me) return;
+    var incoming = m.msg.to === me.id, peerId = incoming ? m.msg.from : m.msg.to;
+    if (m.cid && m.cid === DM.cid) { DM.busy = false; clearTimeout(DM.busyTimer); var inp = $('#dmInput'); if (inp) { inp.value = ''; inp.dispatchEvent(new Event('input')); } }
+    var threadOpen = $('#modal').dataset.kind === 'thread' && !$('#modal').hidden && DM.open === peerId && $('#dmList');
+    if (threadOpen) {
+      var list = $('#dmList'), empty = list.querySelector('.dm-empty'); if (empty) empty.remove();
+      if (!list.querySelector('.dm-msg[data-id="' + (m.msg.id | 0) + '"]')) list.insertAdjacentHTML('beforeend', dmMsgHtml(m.msg));
+      list.scrollTop = list.scrollHeight;
+      if (incoming) Net.send({ type: 'dm_read', peer: peerId });
+      renderThreadBlock();
+    } else if (incoming) {
+      Sound.play('chat');
+      dmToast(m.peer, m.msg.body);
+      if ($('#modal').dataset.kind === 'inbox' && !$('#modal').hidden) openInbox();
+    }
+  }
+  function dmToast(peer, body) {
+    var el = document.createElement('button'); el.type = 'button'; el.className = 'toast dm-toast';
+    el.innerHTML = MAIL_SVG + '<span><b>' + esc(peer.name) + '</b>' + esc(body.length > 80 ? body.slice(0, 80) + '…' : body) + '</span>';
+    el.onclick = function () { el.remove(); openThread(peer.id); };
+    $('#toasts').appendChild(el);
+    setTimeout(function () { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; }, 5200);
+    setTimeout(function () { el.remove(); }, 5600);
+  }
+  function setBlock(peerId, on, btn) {
+    if (btn) btn.disabled = true;
+    apiJson('/api/blocks/' + encodeURIComponent(peerId), { method: on ? 'POST' : 'DELETE', headers: { 'x-ct-csrf': '1' } }).then(function (j) {
+      if (j.blocked) DM.blocked[peerId] = true; else delete DM.blocked[peerId];
+      toast(j.blocked ? 'Đã chặn – người này không nhắn tin cho bạn được nữa' : 'Đã bỏ chặn');
+      var kind = $('#modal').dataset.kind;
+      if (kind === 'thread' && DM.open === peerId) renderThreadBlock();
+      else if (kind === 'player') openPlayerCard({ id: peerId, name: (document.querySelector('#modalCard .pc-name') || {}).textContent });
+    }).catch(function (e) { toast(e.status === 401 ? 'Phiên đăng nhập đã hết – hãy đăng nhập lại' : 'Không thực hiện được – thử lại sau', true); if (btn) btn.disabled = false; });
+  }
+  function onDmAction(act, b) {
+    if (act === 'inbox') { openInbox(); return true; }
+    if (act === 'dm-open') { openThread(b.dataset.peer); return true; }
+    if (act === 'pcard-id') { openPlayerCard({ id: b.dataset.peer, name: DM.peer && DM.peer.name }); return true; }
+    if (act === 'dm-block') {
+      var on = b.dataset.on === '1', id = b.dataset.peer;
+      if (on) confirmBox('Chặn người này?', 'Người bị chặn sẽ không gửi tin nhắn cho bạn được nữa. Bạn có thể bỏ chặn bất cứ lúc nào.', 'Chặn', function () { setBlock(id, true); });
+      else setBlock(id, false, b);
+      return true;
+    }
+    if (act === 'pcard') {
+      var side = b.dataset.side, seat = S.seats && S.seats[side];
+      if (S.mode === 'ai') {
+        if (side === S.myColor) openPlayerCard(Account.user ? { id: Account.user.id, name: Account.user.name } : { name: myName || 'Bạn', self: true });
+        else openPlayerCard({ ai: true, level: LEVEL_NAMES[S.ai.level] });
+      } else if (seat) openPlayerCard({ id: seat.id, name: seat.name, self: side === S.myColor });
+      return true;
+    }
+    if (act === 'pcard-me') { if (Account.user) openPlayerCard({ id: Account.user.id, name: Account.user.name }); return true; }
+    return false;
   }
 
   // ---------- Ghép trận tự động (chỉ người đã đăng nhập) ----------
@@ -1011,7 +1221,8 @@
     S.mode = 'online'; S.roomId = m.roomId; S.gameNo = 0; S.moves = []; prevBoard = null; $('#chatList').innerHTML = '';
     history.pushState('room', '', '/r/' + m.roomId); store.set('ct_last_room', m.roomId);
     store.set('ct_last_room_v', m.variant === 'jieqi' ? 'jieqi' : 'standard');
-    toast('Đã tìm thấy đối thủ: ' + m.opponent.name + ' (Elo ' + m.opponent.rating + ') – ván ' + VARIANT_NAME[m.variant === 'jieqi' ? 'jieqi' : 'standard'] + ', bạn cầm quân ' + SIDE_NAME[m.color], false, m.variant);
+    var t = toast('Đã tìm thấy đối thủ: ' + m.opponent.name + ' (Elo ' + m.opponent.rating + ') – ván ' + VARIANT_NAME[m.variant === 'jieqi' ? 'jieqi' : 'standard'] + ', bạn cầm quân ' + SIDE_NAME[m.color], false, m.variant);
+    if (m.opponent.id) { t.classList.add('clickable'); t.title = 'Xem thông tin người chơi'; t.onclick = function () { t.remove(); openPlayerCard({ id: m.opponent.id, name: m.opponent.name }); }; }
     Sound.play('notify');
   }
   var lastRating = null;

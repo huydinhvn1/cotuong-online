@@ -9,6 +9,8 @@ const X = require('./shared/xiangqi');
 const { createStore } = require('./lib/store');
 const { createAuth } = require('./lib/auth');
 const { Matchmaker, allowedGap } = require('./lib/matchmaker');
+const { publicProfile, miniProfile } = require('./lib/profile');
+const { cleanBody, MSG_MAX } = require('./lib/store');
 
 const PORT = +process.env.PORT || 3000;
 const app = express();
@@ -27,6 +29,53 @@ for (const [alias, page] of Object.entries(LEGAL)) app.get(alias, (req, res) => 
 app.use('/shared', express.static(path.join(__dirname, 'shared')));
 app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size, queue: mm.size, presence: presence(), uptime: process.uptime() | 0 }));
 app.get('/r/:id', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+// ---------------- Thông tin người chơi + tin nhắn riêng (HTTP) ----------------
+const ID_RE = /^[0-9a-f-]{36}$/i;
+const noStore = (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); };
+app.use('/api/players', noStore); app.use('/api/messages', noStore); app.use('/api/blocks', noStore);
+app.get('/api/players/:id', async (req, res) => {
+  const id = String(req.params.id);
+  if (!ID_RE.test(id)) return res.status(404).json({ error: 'not_found' });
+  try { await storeReady; const u = await store.getUser(id); return u ? res.json({ player: publicProfile(u) }) : res.status(404).json({ error: 'not_found' }); }
+  catch (e) { console.error('[api] player', e.message); res.status(500).json({ error: 'server' }); }
+});
+/** Người dùng đang đăng nhập (theo cookie phiên) hoặc trả 401 */
+async function meOr401(req, res) {
+  await storeReady;
+  const u = await auth.userFromCookieHeader(req.headers.cookie);
+  if (!u) { res.status(401).json({ error: 'login', text: 'Cần đăng nhập để dùng tin nhắn.' }); return null; }
+  return u;
+}
+const api = fn => (req, res) => Promise.resolve(fn(req, res)).catch(e => { console.error('[api]', req.path, e.message); if (!res.headersSent) res.status(500).json({ error: 'server' }); });
+app.get('/api/messages', api(async (req, res) => {
+  const me = await meOr401(req, res); if (!me) return;
+  const [convs, blocked, unread] = await Promise.all([store.listConversations(me.id), store.listBlocked(me.id), store.unreadCount(me.id)]);
+  const peers = await Promise.all(convs.map(c => store.getUser(c.peer)));
+  const bl = new Set(blocked);
+  res.json({ unread, blocked, conversations: convs.map((c, i) => ({ peer: miniProfile(peers[i]) || { id: c.peer, name: 'Người chơi đã xoá', avatar: '' }, last: c.last, unread: c.unread, blocked: bl.has(c.peer) })) });
+}));
+app.get('/api/messages/:peer', api(async (req, res) => {
+  const me = await meOr401(req, res); if (!me) return;
+  const peerId = String(req.params.peer);
+  const peer = ID_RE.test(peerId) && peerId !== me.id ? await store.getUser(peerId) : null;
+  if (!peer) return res.status(404).json({ error: 'not_found' });
+  const messages = await store.getThread(me.id, peer.id, { before: req.query.before, limit: req.query.limit });
+  const read = await store.markRead(me.id, peer.id);
+  if (read) pushUnread(me.id);
+  res.json({ peer: publicProfile(peer), blocked: await store.isBlocked(me.id, peer.id), messages, max: MSG_MAX });
+}));
+// chặn / bỏ chặn: cần header riêng (trang khác không gửi được header này nếu không qua CORS) -> chống CSRF
+const blockRoute = on => api(async (req, res) => {
+  if (req.get('x-ct-csrf') !== '1') return res.status(403).json({ error: 'csrf' });
+  const me = await meOr401(req, res); if (!me) return;
+  const peerId = String(req.params.peer);
+  if (!ID_RE.test(peerId) || peerId === me.id || !(await store.getUser(peerId))) return res.status(404).json({ error: 'not_found' });
+  if (on) await store.block(me.id, peerId); else await store.unblock(me.id, peerId);
+  res.json({ ok: true, blocked: await store.isBlocked(me.id, peerId) });
+});
+app.post('/api/blocks/:peer', blockRoute(true));
+app.delete('/api/blocks/:peer', blockRoute(false));
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 16 * 1024 });
@@ -85,6 +134,7 @@ function snapshot(room, ws) {
   const seat = s => {
     const st = room.seats[s]; if (!st) return null;
     const o = { name: st.name, online: online(room, st.token) };
+    if (st.uid) o.id = st.uid; // người đã đăng nhập: id công khai để mở thẻ "Thông tin người chơi"; khách không có
     if (room.rated && st.uid && room.ratingOf && room.ratingOf[st.uid] != null) o.rating = room.ratingOf[st.uid];
     return o;
   };
@@ -109,6 +159,13 @@ function snapshot(room, ws) {
 }
 
 function send(ws, obj) { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+const DM_RATE = Math.max(1, +process.env.DM_RATE || 10), DM_WINDOW_MS = Math.max(1000, +process.env.DM_WINDOW_MS || 30000);
+const dmTimes = new Map(); // uid -> thời điểm các tin gần đây (giới hạn tốc độ)
+setInterval(() => { const now = Date.now(); for (const [k, v] of dmTimes) if (!v.some(t => now - t < DM_WINDOW_MS)) dmTimes.delete(k); }, 60000).unref();
+/** Gửi số tin chưa đọc mới nhất tới mọi thẻ của người dùng */
+function pushUnread(uid) {
+  store.unreadCount(uid).then(n => { for (const c of wss.clients) if (c.userId === uid) send(c, { type: 'dm_unread', count: n }); }, () => { });
+}
 function broadcast(room) { room.lastActive = Date.now(); for (const c of room.clients) send(c, snapshot(room, c)); }
 function notify(room, text, except) { for (const c of room.clients) if (c !== except) send(c, { type: 'toast', text }); }
 
@@ -213,7 +270,7 @@ function startMatch(a, b) {
   for (const e of [a, b]) room.seats[colorOf.get(e)] = { token: e.data.token, name: e.data.name, uid: e.uid };
   for (const [e, o] of [[a, b], [b, a]]) {
     send(e.data, { type: 'mm_found', roomId: room.id, variant: room.variant, color: colorOf.get(e), rating: e.rating,
-      opponent: { name: o.data.name, rating: o.rating }, timeControl: room.timeControl });
+      opponent: { id: o.uid, name: o.data.name, rating: o.rating }, timeControl: room.timeControl });
   }
   for (const e of [a, b]) joinRoom(e.data, room);
   return room;
@@ -271,6 +328,39 @@ const handlers = {
     ws.userId = ws.user ? ws.user.id : null;
     send(ws, { type: 'welcome', token: ws.token });
     send(ws, { type: 'presence', ...presence() }); // người mới vào thấy ngay, những người khác nhận sau (gộp)
+    if (ws.userId) return store.unreadCount(ws.userId).then(n => send(ws, { type: 'dm_unread', count: n }), () => { });
+  },
+  // Tin nhắn riêng: chỉ giữa hai người đã đăng nhập; tối đa MSG_MAX ký tự; giới hạn DM_RATE tin / DM_WINDOW_MS; tôn trọng danh sách chặn
+  async dm_send(ws, m) {
+    const fail = (code, text) => send(ws, { type: 'dm_error', cid: m.cid, code, text });
+    if (!ws.userId) return fail('login', 'Đăng nhập để nhắn tin.');
+    if (!ws.sameOrigin) return fail('origin', 'Không gửi được tin nhắn.');
+    const to = clean(m.to, 64), raw = String(m.body == null ? '' : m.body);
+    if (Array.from(raw.trim()).length > MSG_MAX) return fail('too_long', 'Tin nhắn tối đa ' + MSG_MAX + ' ký tự.');
+    const body = cleanBody(raw);
+    if (!body) return fail('empty', 'Tin nhắn trống.');
+    if (!ID_RE.test(to) || to === ws.userId) return fail('no_user', 'Không tìm thấy người nhận.');
+    const now = Date.now(), times = (dmTimes.get(ws.userId) || []).filter(t => now - t < DM_WINDOW_MS);
+    if (times.length >= DM_RATE) { dmTimes.set(ws.userId, times); return fail('rate', 'Bạn gửi nhanh quá – đợi một chút rồi gửi tiếp nhé.'); }
+    const [peer, blockedMe, iBlocked] = await Promise.all([store.getUser(to), store.isBlocked(to, ws.userId), store.isBlocked(ws.userId, to)]);
+    if (!peer) return fail('no_user', 'Không tìm thấy người nhận.');
+    if (blockedMe) return fail('blocked', 'Bạn không thể nhắn tin cho người này.');
+    if (iBlocked) return fail('you_blocked', 'Bạn đã chặn người này – bỏ chặn để nhắn tin.');
+    times.push(now); dmTimes.set(ws.userId, times);
+    const msg = await store.sendMessage({ from: ws.userId, to, body });
+    if (!msg) return fail('no_user', 'Không tìm thấy người nhận.');
+    const me = miniProfile(ws.user), them = miniProfile(peer);
+    for (const c of wss.clients) {
+      if (c.readyState !== 1) continue;
+      if (c.userId === to) send(c, { type: 'dm', msg, peer: me });
+      else if (c.userId === ws.userId) send(c, { type: 'dm', msg, peer: them, ...(c === ws ? { cid: m.cid } : {}) });
+    }
+    pushUnread(to);
+  },
+  async dm_read(ws, m) {
+    const peer = clean(m.peer, 64);
+    if (!ws.userId || !ID_RE.test(peer)) return;
+    if (await store.markRead(ws.userId, peer)) pushUnread(ws.userId);
   },
   create(ws, m) {
     mmCancel(ws);
@@ -395,6 +485,9 @@ const NEEDS_ROOM = new Set(['sit', 'stand', 'move', 'undo_request', 'draw_offer'
 
 wss.on('connection', (ws, req) => {
   ws.isAlive = true; ws.mmKey = ++wsSeq;
+  // tin nhắn riêng chỉ nhận từ trang cùng nguồn (chống trang lạ mở WebSocket bằng cookie của người dùng)
+  const origin = req.headers.origin;
+  try { ws.sameOrigin = !origin || new URL(origin).host === req.headers.host; } catch { ws.sameOrigin = false; }
   ws.on('pong', () => { ws.isAlive = true; });
   // đọc phiên đăng nhập từ cookie (nếu có); tin nhắn được xử lý tuần tự sau khi biết người dùng
   ws.ready = storeReady.then(() => auth.userFromCookieHeader(req.headers.cookie)).then(u => { ws.user = u; }, () => { ws.user = null; });

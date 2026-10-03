@@ -93,11 +93,12 @@ test('Ghép trận: phòng mới, màu ngẫu nhiên, thấy tên + Elo đối t
     const a = await login('An' + i), b = await login('Bình' + i);
     const { fa, fb, room } = await matchPair(a, b);
     assert.equal(fa.roomId, fb.roomId); assert.notEqual(fa.color, fb.color); colors.add(fa.color);
-    assert.deepEqual(fa.opponent, { name: 'Bình' + i, rating: 1200 }); assert.deepEqual(fb.opponent, { name: 'An' + i, rating: 1200 });
+    assert.deepEqual(fa.opponent, { id: b.uid, name: 'Bình' + i, rating: 1200 }); assert.deepEqual(fb.opponent, { id: a.uid, name: 'An' + i, rating: 1200 });
     assert.equal(room.rated, true); assert.equal(room.variant, 'standard');
     assert.deepEqual(room.timeControl, { base: 600000, inc: 5000 });
     assert.equal(room.seats.r.rating, 1200); assert.equal(room.seats.b.rating, 1200);
     assert.deepEqual([room.seats[fa.color].name, room.seats[fb.color].name], ['An' + i, 'Bình' + i]);
+    assert.deepEqual([room.seats[fa.color].id, room.seats[fb.color].id], [a.uid, b.uid], 'ghế có id công khai để mở thẻ người chơi');
     assert.equal(mm.size, 0);
     await a.close(); await b.close();
   }
@@ -112,7 +113,7 @@ test('Ưu tiên Elo gần nhất; cùng tài khoản ở 2 thẻ không tự gh�
   await sleep(1200); assert.equal(mm.size, 2, 'chênh 290 > ±100: chưa ghép');
   const near = await login('Gần', { standard: { rating: 1190, games: 30 } });
   near.send({ type: 'mm_join', variant: 'standard' });
-  const f = await near.type('mm_found'); assert.deepEqual(f.opponent, { name: 'Giữa', rating: 1210 });
+  const f = await near.type('mm_found'); assert.deepEqual(f.opponent, { id: mid.uid, name: 'Giữa', rating: 1210 });
   assert.equal(mm.size, 1, '"Cao" vẫn chờ');
   // khác kiểu cờ không ghép với nhau
   const jq = await login('Úp'); jq.send({ type: 'mm_join', variant: 'jieqi' }); await jq.wait(m => m.state === 'searching');

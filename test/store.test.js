@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { createStore, JsonStore, PgStore } = require('../lib/store');
+const { createStore, JsonStore, PgStore, cleanBody } = require('../lib/store');
 
 async function suite(t, make) {
   const s = await make();
@@ -56,6 +56,80 @@ async function suite(t, make) {
   } catch (e) { await s.close(); throw e; }
 }
 
+// Tin nhắn riêng + chặn (chạy cho cả JSON và Postgres)
+async function msgSuite(s) {
+  const u1 = await s.upsertOAuthUser({ provider: 'google', providerId: 'm1', name: 'Một' });
+  const u2 = await s.upsertOAuthUser({ provider: 'facebook', providerId: 'm2', name: 'Hai' });
+  const u3 = await s.upsertOAuthUser({ provider: 'google', providerId: 'm3', name: 'Ba' });
+  const NOBODY = '00000000-0000-4000-8000-000000000000';
+  const m1 = await s.sendMessage({ from: u1.id, to: u2.id, body: '  Chào <b>bạn</b>\u0007  ' });
+  assert.deepEqual([m1.from, m1.to, m1.body, m1.readAt], [u1.id, u2.id, 'Chào <b>bạn</b>', null], 'lưu nguyên văn (escape ở phía hiển thị), bỏ ký tự điều khiển');
+  assert.ok(m1.id > 0 && !isNaN(Date.parse(m1.createdAt)));
+  const m2 = await s.sendMessage({ from: u2.id, to: u1.id, body: 'Dòng 1\r\nDòng 2' });
+  assert.equal(m2.body, 'Dòng 1\nDòng 2');
+  await s.sendMessage({ from: u3.id, to: u1.id, body: 'x'.repeat(800) }).then(m => assert.equal(m.body.length, 500, 'tối đa 500 ký tự'));
+  await s.sendMessage({ from: u1.id, to: u2.id, body: 'Ván nữa không?' });
+  assert.equal(await s.sendMessage({ from: u1.id, to: NOBODY, body: 'hi' }), null, 'người nhận không tồn tại');
+  await assert.rejects(() => s.sendMessage({ from: u1.id, to: u2.id, body: '   ' }), /rỗng/);
+  await assert.rejects(() => s.sendMessage({ from: u1.id, to: u1.id, body: 'hi' }), /tự nhắn/);
+  // hộp thư
+  const c1 = await s.listConversations(u1.id);
+  assert.deepEqual(c1.map(c => [c.peer, c.unread, c.last.body]), [[u2.id, 1, 'Ván nữa không?'], [u3.id, 1, 'x'.repeat(500)]]);
+  assert.equal(c1[0].last.from, u1.id);
+  const c2 = await s.listConversations(u2.id);
+  assert.deepEqual(c2.map(c => [c.peer, c.unread]), [[u1.id, 2]]);
+  assert.equal(await s.unreadCount(u2.id), 2); assert.equal(await s.unreadCount(u1.id), 2);
+  // luồng tin: cũ -> mới, phân trang
+  const th = await s.getThread(u2.id, u1.id);
+  assert.deepEqual(th.map(m => m.body), ['Chào <b>bạn</b>', 'Dòng 1\nDòng 2', 'Ván nữa không?']);
+  assert.deepEqual((await s.getThread(u2.id, u1.id, { limit: 2 })).map(m => m.body), ['Dòng 1\nDòng 2', 'Ván nữa không?']);
+  assert.deepEqual((await s.getThread(u2.id, u1.id, { before: th[1].id })).map(m => m.body), ['Chào <b>bạn</b>']);
+  assert.deepEqual(await s.getThread(u3.id, u2.id), [], 'người ngoài không thấy');
+  // đánh dấu đã đọc
+  assert.equal(await s.markRead(u2.id, u1.id), 2);
+  assert.equal(await s.markRead(u2.id, u1.id), 0);
+  assert.equal(await s.unreadCount(u2.id), 0);
+  assert.ok((await s.getThread(u1.id, u2.id)).filter(m => m.from === u1.id).every(m => m.readAt));
+  assert.equal(await s.unreadCount(u1.id), 2, 'đọc ở phía u2 không ảnh hưởng u1');
+  // chặn
+  assert.equal(await s.isBlocked(u2.id, u3.id), false);
+  assert.equal(await s.block(u2.id, u3.id), true);
+  assert.equal(await s.block(u2.id, u3.id), true, 'chặn lại lần nữa không lỗi');
+  assert.equal(await s.block(u2.id, u2.id), false);
+  assert.equal(await s.block(u2.id, NOBODY), false);
+  assert.equal(await s.isBlocked(u2.id, u3.id), true);
+  assert.equal(await s.isBlocked(u3.id, u2.id), false, 'chặn một chiều');
+  assert.deepEqual(await s.listBlocked(u2.id), [u3.id]);
+  assert.equal(await s.unblock(u2.id, u3.id), true);
+  assert.equal(await s.unblock(u2.id, u3.id), false);
+  assert.deepEqual(await s.listBlocked(u2.id), []);
+  await s.block(u1.id, u3.id);
+  // nhiều tin cùng lúc không mất
+  await Promise.all(Array.from({ length: 15 }, (_, i) => s.sendMessage({ from: u3.id, to: u2.id, body: 'n' + i })));
+  assert.equal(await s.unreadCount(u2.id), 15);
+  return { u1, u2, u3 };
+}
+
+test('cleanBody: bỏ ký tự điều khiển, giữ xuống dòng, cắt 500 ký tự (không cắt đôi emoji)', () => {
+  assert.equal(cleanBody(' a\u0000b\tc \n\n\n\nd '), 'abc \n\nd');
+  assert.equal(cleanBody('😀'.repeat(600)), '😀'.repeat(500));
+  assert.equal(cleanBody(null), '');
+});
+
+test('Kho JSON: tin nhắn riêng + chặn, lưu bền qua khởi động lại', async () => {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ct-msg-')), 'users.json');
+  const s = await new JsonStore(file).init();
+  const { u1, u2, u3 } = await msgSuite(s);
+  await s.close();
+  const s2 = await new JsonStore(file).init();
+  assert.equal(await s2.unreadCount(u2.id), 15);
+  assert.equal(await s2.isBlocked(u1.id, u3.id), true);
+  const m = await s2.sendMessage({ from: u1.id, to: u2.id, body: 'sau khởi động lại' });
+  assert.ok(m.id > 19, 'id tiếp tục tăng: ' + m.id);
+  assert.equal((await s2.getThread(u1.id, u2.id)).length, 4);
+  await s2.close();
+});
+
 test('Kho JSON: tạo/cập nhật người dùng, thống kê, lưu bền qua khởi động lại', async (t) => {
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ct-store-')), 'sub', 'users.json');
   const { s, a, f } = await suite(t, () => new JsonStore(file).init());
@@ -80,6 +154,7 @@ test('createStore: không có DATABASE_URL -> file JSON; có -> Postgres', () =>
   assert.ok(createStore({ USERS_FILE: '/tmp/x.json' }) instanceof JsonStore);
   const pg = createStore({ DATABASE_URL: 'postgres://u:p@localhost:5/db' });
   assert.ok(pg instanceof PgStore); pg.close();
+  assert.deepEqual([pg.table, pg.mtable, pg.btable], ['cotuong_users', 'cotuong_messages', 'cotuong_blocks'], 'tên bảng mặc định');
 });
 
 const PGURL = process.env.TEST_DATABASE_URL;
@@ -87,12 +162,17 @@ test('Kho Postgres (TEST_DATABASE_URL)', { skip: !PGURL && 'đặt TEST_DATABASE
   const table = 'ct_test_' + Date.now();
   const { s, a } = await suite(t, () => new PgStore(PGURL, { table }).init());
   try {
+    const { u1, u2, u3 } = await msgSuite(s);
+    assert.equal(s.mtable, table + '_messages'); assert.equal(s.btable, table + '_blocks');
+    // xoá người dùng -> tin nhắn + chặn của họ bị xoá theo
+    await s.pool.query(`DELETE FROM ${table} WHERE id = $1`, [u3.id]);
+    assert.equal(await s.unreadCount(u2.id), 0); assert.deepEqual(await s.listBlocked(u1.id), []);
     // init lần 2 không lỗi, dữ liệu còn nguyên
     const s2 = await new PgStore(PGURL, { table }).init();
     assert.equal((await s2.getUser(a.id)).wins, 26);
     assert.equal((await s2.getUser(a.id)).ratings.standard.rating, 1218);
     await s2.close();
-  } finally { await s.pool.query(`DROP TABLE ${table}_ratings; DROP TABLE ${table}`); await s.close(); }
+  } finally { await s.pool.query(`DROP TABLE ${table}_messages, ${table}_blocks, ${table}_ratings; DROP TABLE ${table}`); await s.close(); }
 });
 
 test('Postgres: bảng người dùng cũ (chưa có Elo) được nâng cấp an toàn, không mất dữ liệu', { skip: !PGURL && 'đặt TEST_DATABASE_URL để chạy' }, async () => {
@@ -116,5 +196,5 @@ test('Postgres: bảng người dùng cũ (chưa có Elo) được nâng cấp a
     const s2 = await new PgStore(PGURL, { table }).init();
     assert.equal((await s2.getUser(u.id)).ratings.jieqi.rating, 1220);
     await s2.close();
-  } finally { await pool.query(`DROP TABLE IF EXISTS ${table}_ratings; DROP TABLE IF EXISTS ${table}`); await pool.end(); }
+  } finally { await pool.query(`DROP TABLE IF EXISTS ${table}_messages, ${table}_blocks, ${table}_ratings; DROP TABLE IF EXISTS ${table}`); await pool.end(); }
 });

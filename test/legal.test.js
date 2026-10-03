@@ -53,6 +53,12 @@ test('chính sách bảo mật mô tả đúng dữ liệu thu thập', async ()
   assert.doesNotMatch(auth, /scope', '[^']*email/);
   assert.doesNotMatch(auth, /fields: '[^']*email/);
   assert.doesNotMatch(store, /email/i);
+  // tin nhắn riêng được lưu -> chính sách phải nói rõ (VI + EN), và trang xoá dữ liệu nhắc tới tin nhắn
+  for (const t of ['Tin nhắn riêng', 'danh sách người bạn đã chặn', '500 ký tự', 'không mã hoá đầu-cuối', 'private messages', 'block list', 'Thông tin người chơi'])
+    assert.ok(html.includes(t), 'chính sách thiếu: ' + t);
+  assert.match(store, /_messages/); assert.match(store, /_blocks/);
+  const del = (await get('/xoa-du-lieu')).html;
+  assert.match(del, /tin nhắn riêng/); assert.match(del, /private messages/);
 });
 
 test('trang xoá dữ liệu: hướng dẫn + ô tài khoản (ẩn với khách)', async () => {
