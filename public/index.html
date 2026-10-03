@@ -4,9 +4,89 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1a1310">
-<title>Cờ Tướng Online</title>
+<title>Cờ Tướng Online – Chơi cờ tướng với máy, Cờ Úp miễn phí</title>
 <script src="/i18n.js"></script>
-<meta name="description" content="Chơi cờ tướng online với bạn bè hoặc với máy – miễn phí, không cần cài đặt.">
+<meta name="description" content="Chơi cờ tướng online miễn phí với bạn bè hoặc chơi cờ tướng với máy 5 cấp độ, cờ úp online, tìm đối thủ có Elo. Không cần cài đặt – chơi ngay trên điện thoại và máy tính.">
+<meta name="keywords" content="cờ tướng online, chơi cờ tướng với máy, cờ úp online, cờ tướng miễn phí, cờ tướng, cờ úp, xiangqi, chinese chess">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://cotuongvn.net/">
+<link rel="alternate" hreflang="vi" href="https://cotuongvn.net/">
+<link rel="alternate" hreflang="en" href="https://cotuongvn.net/?lang=en">
+<link rel="alternate" hreflang="x-default" href="https://cotuongvn.net/">
+<!-- Xem trước khi chia sẻ (Facebook, Zalo, Messenger, X…) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cờ Tướng Online">
+<meta property="og:title" content="Cờ Tướng &amp; Cờ Úp Online – Chơi miễn phí">
+<meta property="og:description" content="Cờ tướng miễn phí ngay trên trình duyệt: chơi với máy 5 cấp độ, cờ úp online, mời bạn bè qua link Zalo / Messenger. Không cần cài đặt.">
+<meta property="og:url" content="https://cotuongvn.net/">
+<meta property="og:image" content="https://cotuongvn.net/og-image.png">
+<meta property="og:image:secure_url" content="https://cotuongvn.net/og-image.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Bàn cờ tướng – Cờ Tướng &amp; Cờ Úp Online, chơi miễn phí tại cotuongvn.net">
+<meta property="og:locale" content="vi_VN">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Cờ Tướng &amp; Cờ Úp Online – Chơi miễn phí">
+<meta name="twitter:description" content="Cờ tướng miễn phí ngay trên trình duyệt: chơi với máy 5 cấp độ, cờ úp online, mời bạn bè qua link Zalo / Messenger. Không cần cài đặt.">
+<meta name="twitter:image" content="https://cotuongvn.net/og-image.png">
+<meta name="twitter:image:alt" content="Bàn cờ tướng – Cờ Tướng &amp; Cờ Úp Online">
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@type": [
+  "WebApplication",
+  "VideoGame"
+ ],
+ "name": "Cờ Tướng Online",
+ "alternateName": [
+  "Cờ Tướng & Cờ Úp Online",
+  "cotuongvn.net",
+  "Xiangqi Online"
+ ],
+ "url": "https://cotuongvn.net/",
+ "description": "Chơi cờ tướng online miễn phí với bạn bè hoặc chơi cờ tướng với máy 5 cấp độ, cờ úp online, tìm đối thủ có Elo. Không cần cài đặt – chơi ngay trên điện thoại và máy tính.",
+ "inLanguage": "vi",
+ "availableLanguage": [
+  "vi",
+  "en"
+ ],
+ "image": "https://cotuongvn.net/og-image.png",
+ "applicationCategory": "GameApplication",
+ "applicationSubCategory": "Board game",
+ "genre": [
+  "Cờ tướng",
+  "Cờ úp",
+  "Board game"
+ ],
+ "gamePlatform": [
+  "Web browser",
+  "Android",
+  "iOS"
+ ],
+ "operatingSystem": "Any (trình duyệt web)",
+ "browserRequirements": "Requires JavaScript",
+ "isAccessibleForFree": true,
+ "playMode": [
+  "SinglePlayer",
+  "MultiPlayer"
+ ],
+ "numberOfPlayers": {
+  "@type": "QuantitativeValue",
+  "minValue": 1,
+  "maxValue": 2
+ },
+ "offers": {
+  "@type": "Offer",
+  "price": "0",
+  "priceCurrency": "VND",
+  "availability": "https://schema.org/InStock"
+ },
+ "keywords": "cờ tướng online, chơi cờ tướng với máy, cờ úp online, cờ tướng miễn phí, xiangqi"
+}
+</script>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -38,7 +118,7 @@
     <div class="hero-text">
       <h1 data-i18n-html="hero.h1">Cờ Tướng <span>Online</span></h1>
       <p data-i18n="hero.lead">Thách đấu bạn bè chỉ với một đường link, hoặc rèn luyện cùng máy với 5 cấp độ. Không cần đăng ký.</p>
-      <!-- Tài khoản (chỉ hiện khi server bật đăng nhập Google/Facebook) -->
+      <!-- Tài khoản (chỉ hiện khi server bật đăng nhập) -->
       <div class="account" id="account" hidden></div>
       <label class="name-field" id="nameField">
         <span data-i18n="name.label">Tên của bạn</span>
@@ -152,6 +232,10 @@
       </div>
       <button class="btn primary block" id="aiBtn" data-i18n="btn.start">Bắt đầu</button>
     </article>
+  </section>
+  <section class="share-strip" aria-labelledby="shareStripT">
+    <p id="shareStripT" data-i18n="sh.web.strip">Thấy hay? Rủ bạn bè cùng chơi!</p>
+    <button class="btn" type="button" data-act="shareweb"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4"/><path d="m15.4 6.5-6.8 4"/></svg><span data-i18n="sh.web.btn">Chia sẻ web</span></button>
   </section>
   <footer class="foot"><span data-i18n="foot.rules">Luật: chiếu bí hoặc vây hết nước đều thắng · Lặp lại thế cờ 3 lần = hoà · Lộ mặt tướng không hợp lệ</span>
     <nav class="foot-links" aria-label="Thông tin pháp lý" data-i18n-attr="aria-label:foot.legal"><a href="/chinh-sach-bao-mat" data-href-en="/en/privacy" data-i18n="foot.privacy">Chính sách bảo mật</a><a href="/dieu-khoan" data-href-en="/en/terms" data-i18n="foot.terms">Điều khoản sử dụng</a><a href="/xoa-du-lieu" data-href-en="/en/data-deletion" data-i18n="foot.deletion">Xoá dữ liệu</a><button class="foot-donate" type="button" data-act="donate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4 7 4c2.1 0 3.6 1.1 5 2.9C13.4 5.1 14.9 4 17 4c4 0 6.1 4.2 4.6 7.7C19.5 16.4 12 21 12 21z"/></svg><span data-i18n="foot.donate">Ủng hộ tác giả</span></button></nav>

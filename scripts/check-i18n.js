@@ -40,7 +40,7 @@ const layout = p => p.evaluate(() => {
   const vis = [...document.querySelectorAll('.topbar .brand-mark, .topbar .brand-text, #variantBadge, .topbar-actions > *')].filter(e => e.offsetParent && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0).map(e => [e, e.getBoundingClientRect()]);
   vis.forEach(([e, a], i) => { if (a.left < -0.5 || a.right > W + 0.5) bad.push('topbar out ' + (e.id || e.className)); vis.forEach(([f, c], j) => { if (i < j && a.right > c.left + 0.5 && c.right > a.left + 0.5 && a.bottom > c.top && c.bottom > a.top) bad.push('topbar overlap ' + (e.id || e.className) + ' / ' + (f.id || f.className)); }); });
   const tb = document.querySelector('.topbar').getBoundingClientRect(); if (tb.height > 66) bad.push('topbar 2 rows ' + Math.round(tb.height));
-  document.querySelectorAll('.btn, .seg button, .tab, .help-link, .acc-btn, .vbadge, .live-stat, .live-var, .quick-ctl, .pc-v, .pc-stats div, .controls .btn span').forEach(e => {
+  document.querySelectorAll('.btn, .seg button, .tab, .help-link, .acc-btn, .vbadge, .live-stat, .live-var, .quick-ctl, .pc-v, .pc-stats div, .controls .btn span, .sh-btn, .sh-btn span').forEach(e => {
     if (!e.offsetParent || !e.clientWidth) return;
     const r = e.getBoundingClientRect();
     if (e.scrollWidth > e.clientWidth + 1) bad.push('clipped "' + e.textContent.trim().slice(0, 30) + '" ' + e.scrollWidth + '>' + e.clientWidth);
@@ -91,7 +91,7 @@ const modalFits = p => p.evaluate(() => { const c = document.querySelector('#mod
       for (const [loc, want] of [['vi-VN', 'vi'], ['en-US', 'en'], ['fr-FR', 'en']]) {
         const p = await mk(null, 390, 844, loc);
         const s = await p.evaluate(() => ({ lang: document.documentElement.lang, title: document.title, btn: document.querySelector('#langBtn').textContent, h: document.querySelector('#card-x') ? '' : document.querySelector('.cards h2').textContent }));
-        ok(s.lang === want && s.btn === want.toUpperCase() && (want === 'vi' ? s.title === 'Cờ Tướng Online' && s.h === 'Chơi với bạn' : s.title === 'Xiangqi Online' && s.h === 'Play a friend'), `${eng} navigator.language ${loc} -> ${want.toUpperCase()} ${JSON.stringify(s)}`);
+        ok(s.lang === want && s.btn === want.toUpperCase() && (want === 'vi' ? s.title.startsWith('Cờ Tướng Online –') && s.h === 'Chơi với bạn' : s.title.startsWith('Xiangqi Online –') && s.h === 'Play a friend'), `${eng} navigator.language ${loc} -> ${want.toUpperCase()} ${JSON.stringify(s)}`);
       }
 
       // ---------- Sảnh khách 320 (EN) ----------
@@ -102,13 +102,25 @@ const modalFits = p => p.evaluate(() => { const c = document.querySelector('#mod
       await G.click('#lobby [data-act="jqrules"]'); await G.waitForSelector('.jq-rules');
       ok(/Jieqi \(hidden pieces\) rules/.test(await G.textContent('#modalCard')) && /General/.test(await G.textContent('#modalCard')), `${eng} EN luật cờ úp bằng tiếng Anh`);
       await scan(G, 'luật cờ úp'); ok(await modalFits(G), `${eng} EN luật cờ úp vừa 320`); await G.click('#modalCard [data-act="modal-close"]');
+      // "Chia sẻ web" ở sảnh -> hộp chia sẻ (Zalo / Messenger / Facebook / Copy link)
+      await G.click('#lobby [data-act="shareweb"]'); await G.waitForSelector('#modalCard .share-btns');
+      const sw = await G.evaluate(() => ({ h: document.querySelector('#modalCard h3').textContent, labels: [...document.querySelectorAll('#modalCard .sh-btn span')].map(e => e.textContent), fb: document.querySelector('#modalCard .sh-facebook').getAttribute('href'), strip: document.querySelector('.share-strip').textContent.trim() }));
+      ok(sw.h === 'Share Xiangqi Online' && /Zalo,Messenger,Facebook,(More…,)?Copy link/.test(sw.labels.join()) && sw.fb === 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(BASE + '/') && /Invite your friends/.test(sw.strip), `${eng} EN hộp "Chia sẻ web" ${JSON.stringify(sw)}`);
+      await scan(G, 'chia sẻ web'); ok(await modalFits(G), `${eng} EN hộp chia sẻ vừa 320`); await lay(G, 'hộp chia sẻ 320'); await shot(G, 'en-chia-se-web-320');
+      await G.evaluate(() => { window.__opened = []; window.open = u => { window.__opened.push(u); return null; }; });
+      await G.click('#modalCard .sh-copy'); const tc = await G.waitForSelector('.toast:has-text("Link copied")', { timeout: 4000 }).catch(() => null);
+      ok(!!tc, `${eng} EN "Copy link" -> thông báo đã sao chép`);
+      await G.click('#modalCard .sh-zalo'); await sleep(150);
+      const zo = await G.evaluate(() => window.__opened.slice());
+      ok(zo.includes('https://chat.zalo.me/') || await G.evaluate(() => !!navigator.share), `${eng} Zalo (máy tính): sao chép lời mời + mở Zalo Web ${JSON.stringify(zo)}`);
+      await G.click('#modalCard [data-act="modal-close"]');
       await G.click('.topbar .donate-btn'); await G.waitForSelector('.zelle-qr img');
       ok(/Support the author via Zelle/.test(await G.textContent('#modalCard')) && /HUY DINH/.test(await G.textContent('#modalCard')), `${eng} EN hộp Ủng hộ bằng tiếng Anh`);
       await scan(G, 'ủng hộ'); ok(await modalFits(G), `${eng} EN hộp Ủng hộ vừa 320`); await shot(G, 'en-ung-ho-320');
       // đổi ngôn ngữ khi hộp đang mở: dịch lại ngay
       await G.evaluate(() => document.querySelector('#langBtn').click()); // hộp che thanh trên -> bấm bằng JS để thử dịch lại khi hộp đang mở
       const vi = await G.evaluate(() => ({ lang: document.documentElement.lang, t: document.title, m: document.querySelector('#modalCard h3').textContent, btn: document.querySelector('#langBtn').textContent, ls: localStorage.getItem('ct_lang'), h: document.querySelector('.cards h2').textContent, foot: document.querySelector('.foot-links a').getAttribute('href') }));
-      ok(vi.lang === 'vi' && vi.t === 'Cờ Tướng Online' && vi.m === 'Ủng hộ tác giả qua Zelle' && vi.btn === 'VI' && vi.ls === 'vi' && vi.h === 'Chơi với bạn' && vi.foot === '/chinh-sach-bao-mat', `${eng} bấm VI/EN -> tiếng Việt ngay (cả hộp đang mở), nhớ localStorage ${JSON.stringify(vi)}`);
+      ok(vi.lang === 'vi' && vi.t.startsWith('Cờ Tướng Online –') && vi.m === 'Ủng hộ tác giả qua Zelle' && vi.btn === 'VI' && vi.ls === 'vi' && vi.h === 'Chơi với bạn' && vi.foot === '/chinh-sach-bao-mat', `${eng} bấm VI/EN -> tiếng Việt ngay (cả hộp đang mở), nhớ localStorage ${JSON.stringify(vi)}`);
       await G.click('#modalCard [data-act="modal-close"]');
       await G.reload({ waitUntil: 'networkidle' });
       ok(await G.evaluate(() => document.documentElement.lang === 'vi' && document.querySelector('#langBtn').textContent === 'VI'), `${eng} tải lại trang vẫn giữ tiếng Việt (localStorage) dù trình duyệt là en-US`);
@@ -213,6 +225,9 @@ const modalFits = p => p.evaluate(() => { const c = document.querySelector('#mod
       await A.waitForSelector('#roomPanel .room-code'); await sleep(200);
       ok(/Waiting for an opponent/.test(await A.textContent('#status')) && /Room code/.test(await A.textContent('#roomPanel')), `${eng} EN phòng chờ`);
       await scan(A, 'phòng chờ'); await lay(A, 'phòng chờ 320');
+      const rs = await A.evaluate(() => ({ labels: [...document.querySelectorAll('#roomPanel .sh-btn span')].map(e => e.textContent), fb: (document.querySelector('#roomPanel .sh-facebook') || {}).href, vis: [...document.querySelectorAll('#roomPanel .sh-btn')].every(b => { const r = b.getBoundingClientRect(); return r.width >= 44 && r.height >= 44 && r.right <= innerWidth; }) }));
+      ok(/Zalo,Messenger,Facebook,(More…,)?Copy link/.test(rs.labels.join()) && rs.fb === 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(BASE + '/r/' + code) && rs.vis, `${eng} EN nút chia sẻ phòng (Zalo/Messenger/Facebook/Copy, ≥44px) ${JSON.stringify(rs)}`);
+      await A.locator('#roomPanel .share-btns').scrollIntoViewIfNeeded(); await shot(A, 'en-phong-chia-se-320');
       await B.goto(BASE + '/r/' + code, { waitUntil: 'networkidle' });
       const tj = await A.waitForSelector('.toast:has-text("joined the room")', { timeout: 5000 }).catch(() => null);
       ok(!!tj && /Lan joined the room \(Black\)/.test(await tj.textContent()), `${eng} EN thông báo server "người vào phòng" dịch theo ngôn ngữ người xem`);

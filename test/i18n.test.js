@@ -128,7 +128,7 @@ test('trang pháp lý tiếng Anh đầy đủ: /en/privacy, /en/terms, /en/data
     }
     assert.equal((await get('/en/privacy-policy')).html, (await get('/en/privacy')).html);
     const priv = (await get('/en/privacy')).html;
-    for (const s of ['openid', 'public_profile', 'ct_session', 'private messages', 'block list', 'not</b> store your email', 'Elo', '500 characters']) assert.ok(priv.includes(s), 'privacy EN thiếu: ' + s);
+    for (const s of ['openid', 'profile', 'ct_session', 'private messages', 'block list', 'not</b> store your email', 'Elo', '500 characters']) assert.ok(priv.includes(s), 'privacy EN thiếu: ' + s);
     const del = (await get('/en/data-deletion')).html;
     assert.match(del, /30 days/); assert.match(del, /id="myAccount" hidden/); assert.match(del, /fetch\('\/api\/me'/);
     // sảnh: chân trang đổi link theo ngôn ngữ

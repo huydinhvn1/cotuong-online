@@ -417,7 +417,7 @@
     if (chk) tx += esc(t('st.check'));
     return { t: tx, cls: chk ? 'check' : '', dot: turn };
   }
-  var baseTitle = t('title');
+  var baseTitle = t('title.home');
   function updateTitle() { document.title = (document.hidden && unread) ? t('title.unread', { n: unread }) : baseTitle; }
   function renderStatus() {
     var st = statusText(), el = $('#status');
@@ -483,6 +483,60 @@
     el.innerHTML = h; el.scrollTop = el.scrollHeight;
   }
   function roomLink() { return location.origin + '/r/' + S.roomId; }
+  function roomShareText() { return t('share.text', { v: t('v.lower.' + (S.variant === 'jieqi' ? 'jieqi' : 'standard')), code: S.roomId }); }
+
+  // ---------- Chia sẻ: Zalo / Messenger / Facebook / Web Share / sao chép ----------
+  // Zalo không có link chia sẻ công khai nếu không có Official Account (data-oaid) -> điện thoại: bảng chia sẻ của máy (chọn Zalo);
+  // máy tính: sao chép lời mời + link rồi mở Zalo Web để dán. Messenger: điện thoại mở app (fb-messenger://), máy tính: sao chép + messenger.com.
+  var IS_MOBILE = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+  var SH_ICON = {
+    zalo: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="7" fill="#0068ff"/><text x="12" y="15.2" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="8" font-weight="800" fill="#fff">Zalo</text></svg>',
+    messenger: '<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="shMsg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#0a7cff"/><stop offset=".6" stop-color="#a033ff"/><stop offset="1" stop-color="#ff5c87"/></linearGradient></defs><circle cx="12" cy="12" r="11" fill="url(#shMsg)"/><path fill="#fff" d="M12 5.2c-3.9 0-6.9 2.8-6.9 6.6 0 2 .8 3.7 2.2 4.9v2.4l2.2-1.2c.8.2 1.6.3 2.5.3 3.9 0 6.9-2.8 6.9-6.5S15.9 5.2 12 5.2z"/><path fill="#7a3cf5" d="m7.9 13.9 2.4-3.8 2 1.5 2.9-1.6-2.4 3.8-2-1.5z"/></svg>',
+    facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#1877f2"/><path fill="#fff" d="M13.4 22.9v-7.6h2.5l.4-2.9h-2.9v-1.9c0-.8.3-1.4 1.5-1.4h1.5V6.5c-.3 0-1.2-.1-2.2-.1-2.2 0-3.7 1.3-3.7 3.8v2.2H8v2.9h2.5v7.4z"/></svg>',
+    native: '<svg viewBox="0 0 24 24" aria-hidden="true" class="sh-line">' + ICONS.share + '</svg>',
+    copy: '<svg viewBox="0 0 24 24" aria-hidden="true" class="sh-line">' + ICONS.copy + '</svg>'
+  };
+  function fbShareUrl(url) { return 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url); }
+  function shareBtnsHtml(url, text) {
+    var items = ['zalo', 'messenger', 'facebook'];
+    if (navigator.share) items.push('native');
+    items.push('copy');
+    return '<div class="share-btns n' + items.length + '" data-url="' + esc(url) + '" data-text="' + esc(text) + '">' + items.map(function (k) {
+      var lab = t(k === 'native' ? 'sh.more' : 'sh.' + k), aria = k === 'copy' || k === 'native' ? (k === 'copy' ? lab : t('sh.title')) : t('sh.via', { app: lab });
+      var inner = SH_ICON[k] + '<span>' + esc(lab) + '</span>', at = ' data-sh="' + k + '" title="' + esc(aria) + '" aria-label="' + esc(aria) + '"';
+      if (k === 'facebook') return '<a class="sh-btn sh-' + k + '" href="' + esc(fbShareUrl(url)) + '" target="_blank" rel="noopener noreferrer"' + at + '>' + inner + '</a>';
+      return '<button type="button" class="sh-btn sh-' + k + '"' + at + '>' + inner + '</button>';
+    }).join('') + '</div>';
+  }
+  function nativeShare(url, text) { return navigator.share({ title: t('title'), text: text, url: url }).catch(function () { }); }
+  function doShare(kind, url, text) {
+    if (kind === 'facebook') return; // thẻ <a> tự mở facebook.com/sharer trong thẻ mới
+    if (kind === 'copy') { copyText(url, t('sh.copied')); return; }
+    if (kind === 'native') { if (navigator.share) nativeShare(url, text); else copyText(url, t('sh.copied')); return; }
+    if (kind === 'zalo') {
+      if (navigator.share && IS_MOBILE) { nativeShare(url, text); return; }
+      copyText(text + ' ' + url, t('sh.pasteZalo'));
+      window.open('https://chat.zalo.me/', '_blank', 'noopener');
+      return;
+    }
+    if (kind === 'messenger') {
+      copyText(url, t('sh.pasteMessenger'));
+      if (IS_MOBILE) location.href = 'fb-messenger://share/?link=' + encodeURIComponent(url);
+      else window.open('https://www.messenger.com/', '_blank', 'noopener');
+    }
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-sh]'); if (!b) return;
+    var box = b.closest('.share-btns'); if (!box) return;
+    if (b.dataset.sh !== 'facebook') e.preventDefault();
+    doShare(b.dataset.sh, box.dataset.url, box.dataset.text);
+  });
+  function siteUrl() { return location.origin + '/'; }
+  function shareWebHtml() {
+    return '<div class="share-modal"><div class="sm-icon" aria-hidden="true">' + icon('share') + '</div><h3>' + t('sh.web.h') + '</h3><p>' + t('sh.web.lead') + '</p>' +
+      '<div class="link sm-link">' + esc(siteUrl()) + '</div>' + shareBtnsHtml(siteUrl(), t('sh.web.text')) +
+      '<div class="row"><button class="btn" data-act="modal-close">' + t('close') + '</button></div></div>';
+  }
   function renderRoomPanel() {
     var el = $('#roomPanel'), h = '';
     if (S.mode === 'online') {
@@ -491,6 +545,7 @@
         '<button class="icon-btn" data-act="copycode" title="' + esc(t('rp.copyCode')) + '" aria-label="' + esc(t('rp.copyCode')) + '">' + icon('copy') + '</button></div>';
       h += '<div class="room-meta">' + (S.rated ? '<span class="rated-tag" title="' + esc(t('rp.ratedTitle')) + '">' + t('rated') + '</span>' : '') + variantTag() + '<span>⏱ ' + tc + '</span><span>👁 ' + t('rp.spect', { n: S.spectators }) + '</span><span>' + t('rp.game', { n: S.gameNo }) + '</span></div>';
       h += '<div class="share-row"><div class="link">' + esc(roomLink()) + '</div><button class="btn primary" data-act="share">' + icon('share') + t('rp.invite') + '</button></div>';
+      h += shareBtnsHtml(roomLink(), roomShareText());
     } else if (S.mode === 'ai') {
       h += '<div class="room-head"><div><div class="room-label">' + t('rp.ai') + '</div><div class="room-code" style="letter-spacing:0;font-size:22px">' + t('rp.level', { lv: LEVEL_NAMES[S.ai.level] }) + '</div></div>' +
         '<div class="avatar ' + S.myColor + '">' + CH[S.myColor === 'r' ? 'K' : 'k'] + '</div></div>';
@@ -516,13 +571,14 @@
     if (act === 'copycode') { copy(S.roomId, t('copied.code')); return; }
     if (act === 'share') {
       var url = roomLink();
-      if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) navigator.share({ title: t('title'), text: t('share.text', { v: t('v.lower.' + (S.variant === 'jieqi' ? 'jieqi' : 'standard')), code: S.roomId }), url: url }).catch(function () { });
+      if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) nativeShare(url, roomShareText());
       else copy(url, t('copied.link'));
       return;
     }
     if (act === 'modal-close') { closeModal(); return; }
     if (act === 'jqrules') { openModal(jqRules(), 'jqrules'); return; }
     if (act === 'donate') { openModal(donateHtml(), 'donate'); return; }
+    if (act === 'shareweb') { openModal(shareWebHtml(), 'shareweb'); return; }
     if (onDmAction(act, b)) return;
     if (S.mode === 'online') {
       var map = { undo: 'undo_request', draw: 'draw_offer', resign: null, rematch: 'rematch', cancel: 'cancel' };
@@ -864,7 +920,7 @@
     $('#lobby').hidden = v !== 'lobby'; $('#game').hidden = v !== 'game';
     $('#chatTab').hidden = S.mode !== 'online';
     if (S.mode !== 'online') { document.querySelector('.tab[data-tab="moves"]').click(); }
-    if (v === 'lobby') { renderResume(); baseTitle = t('title'); updateTitle(); setUnread(0); hideChatToast(); connBanner(false); }
+    if (v === 'lobby') { renderResume(); baseTitle = t('title.home'); updateTitle(); setUnread(0); hideChatToast(); connBanner(false); }
     updateFab(); renderVariantBadge();
   }
   function leaveOnline() { if (S.mode === 'online') { Net.send({ type: 'leave' }); S.roomId = null; S.gameNo = 0; } }
@@ -1280,9 +1336,10 @@
     renderGrid(); if (S.mode) renderAll(); else renderVariantBadge();
     renderResume(); renderAccount(); renderInboxBadge(); setUnread(unread);
     if (MM.state === 'searching') tickMM();
-    baseTitle = t('title'); if (S.mode) renderStatus(); else updateTitle();
+    baseTitle = t(S.mode ? 'title' : 'title.home'); if (S.mode) renderStatus(); else updateTitle();
     var kind = $('#modal').hidden ? '' : $('#modal').dataset.kind;
     if (kind === 'donate') openModal(donateHtml(), 'donate');
+    else if (kind === 'shareweb') openModal(shareWebHtml(), 'shareweb');
     else if (kind === 'jqrules') openModal(jqRules(), 'jqrules');
     else if (kind === 'end') endGameUI(true);
     else if (kind === 'offer' && S.pending) showOfferModal(S.pending);

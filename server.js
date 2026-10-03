@@ -24,6 +24,12 @@ const store = createStore(process.env);
 const storeReady = store.init().catch(e => console.error('[store] không khởi tạo được kho người dùng:', e.message));
 const auth = createAuth({ env: process.env, store });
 app.use(auth.router);
+// SEO + xem trước khi chia sẻ (lib/seo.js): robots.txt, sitemap.xml, trang chủ (?lang=en có thẻ tiếng Anh), link phòng /r/MÃ có thẻ "Mời bạn vào phòng…"
+const seo = require('./lib/seo').createSeo({ env: process.env, rooms: { get: id => rooms.get(id) } });
+const htmlOut = (res, html) => res.set('Cache-Control', 'no-cache').type('html').send(html);
+app.get('/robots.txt', (req, res) => res.set('Cache-Control', 'public, max-age=3600').type('text/plain').send(seo.robots()));
+app.get('/sitemap.xml', (req, res) => res.set('Cache-Control', 'public, max-age=3600').type('application/xml').send(seo.sitemap()));
+app.get(['/', '/index.html'], (req, res) => htmlOut(res, seo.home(req.query.lang === 'en' ? 'en' : 'vi')));
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 // Trang pháp lý (cần cho màn hình xác thực OAuth của Google/Facebook) + bí danh tiếng Anh
 const LEGAL = { '/privacy': 'chinh-sach-bao-mat', '/privacy-policy': 'chinh-sach-bao-mat', '/terms': 'dieu-khoan', '/data-deletion': 'xoa-du-lieu' };
@@ -32,7 +38,7 @@ for (const [alias, page] of Object.entries(LEGAL)) app.get(alias, (req, res) => 
 app.get('/en/privacy-policy', (req, res) => res.sendFile(path.join(__dirname, 'public', 'en', 'privacy.html')));
 app.use('/shared', express.static(path.join(__dirname, 'shared')));
 app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size, queue: mm.size, presence: presence(), uptime: process.uptime() | 0 }));
-app.get('/r/:id', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/r/:id', (req, res) => htmlOut(res, seo.room(req.params.id)));
 
 // ---------------- Thông tin người chơi + tin nhắn riêng (HTTP) ----------------
 const ID_RE = /^[0-9a-f-]{36}$/i;

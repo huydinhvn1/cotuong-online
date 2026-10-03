@@ -762,3 +762,26 @@ button.acc-avatar { border: 0; padding: 0; cursor: pointer; font-family: inherit
 /* mức độ máy bằng tiếng Anh ("Beginner", "Medium"…) dài hơn: nút co theo chữ, chữ nhỏ hơn ở màn hẹp — không bẻ đôi từ */
 html[lang="en"] .seg.levels button { flex: 1 1 auto; padding-left: 3px; padding-right: 3px; }
 @media (max-width: 380px) { html[lang="en"] .seg.levels button { font-size: 11.5px; padding-left: 2px; padding-right: 2px; } html[lang="en"] .seg.levels { gap: 2px; } }
+/* Chia sẻ: Zalo / Messenger / Facebook / Khác / Sao chép (khung phòng + hộp "Chia sẻ web") */
+.share-btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 6px; margin-top: 10px; }
+.sh-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 58px; padding: 7px 2px 6px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0, 0, 0, .22); color: var(--ink); font: inherit; font-size: 11.5px; font-weight: 600; line-height: 1.15; text-decoration: none; cursor: pointer; transition: background .15s, border-color .15s, transform .1s; -webkit-tap-highlight-color: transparent; }
+.sh-btn:hover { background: rgba(255, 244, 225, .08); border-color: rgba(217, 166, 73, .45); }
+.sh-btn:active { transform: scale(.96); }
+.sh-btn:focus-visible { outline: 2px solid var(--gold2); outline-offset: 2px; }
+.sh-btn svg { width: 26px; height: 26px; flex: none; }
+.sh-btn svg.sh-line { fill: none; stroke: var(--gold2); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; padding: 2px; }
+.sh-btn span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.share-modal .sm-icon { width: 54px; height: 54px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center; background: rgba(217, 166, 73, .14); color: var(--gold2); }
+.share-modal .sm-icon svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.share-modal p { margin-bottom: 14px; }
+.share-modal .sm-link { font-size: 13px; padding: 10px 12px; border-radius: 10px; background: rgba(0, 0, 0, .28); color: var(--muted); border: 1px solid var(--line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.share-modal .share-btns { margin: 12px 0 18px; }
+.share-strip { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px; margin-top: 22px; padding: 14px 16px; border-radius: var(--radius); border: 1px dashed rgba(217, 166, 73, .35); background: var(--panel); text-align: center; }
+.share-strip p { margin: 0; color: var(--muted); font-size: 14.5px; }
+.share-strip .btn { width: auto; }
+@media (max-width: 360px) { .share-btns { gap: 4px; } .sh-btn { font-size: 10.5px; padding-left: 1px; padding-right: 1px; } .sh-btn svg { width: 24px; height: 24px; } }
+/* hộp chia sẻ trên màn hẹp: bớt lề hai bên để 5 nút (… "Messenger") vừa một hàng */
+.modal[data-kind="shareweb"] .modal-card { padding: 22px 18px 18px; }
+@media (max-width: 420px) { .modal[data-kind="shareweb"] { padding: 12px; } .modal[data-kind="shareweb"] .modal-card { padding: 20px 12px 14px; } .share-modal h3 { font-size: 22px; } }
+/* 5 nút (có "Khác…" = bảng chia sẻ của máy) trên màn hẹp: 3 + 2, căn giữa */
+@media (max-width: 420px) { .share-btns.n5 { display: flex; flex-wrap: wrap; justify-content: center; } .share-btns.n5 .sh-btn { flex: 0 0 calc((100% - 12px) / 3); } }

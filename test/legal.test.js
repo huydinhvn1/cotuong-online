@@ -44,7 +44,7 @@ test('3 trang pháp lý + bí danh trả về 200 cùng nội dung', async () =>
 
 test('chính sách bảo mật mô tả đúng dữ liệu thu thập', async () => {
   const { html } = await get('/chinh-sach-bao-mat');
-  for (const s of ['openid', 'profile', 'public_profile', 'Tên hiển thị', 'ảnh đại diện', 'Thắng/Thua/Hoà', 'không bán', 'ct_session', 'khách', '/xoa-du-lieu'])
+  for (const s of ['openid', 'profile', 'Tên hiển thị', 'ảnh đại diện', 'Thắng/Thua/Hoà', 'không bán', 'ct_session', 'khách', '/xoa-du-lieu'])
     assert.ok(html.toLowerCase().includes(s.toLowerCase()), 'thiếu: ' + s);
   assert.match(html, /không<\/b> lưu địa chỉ email/);
   // Khẳng định "không lưu email" phải đúng với mã nguồn: scope không có email, Facebook không xin trường email, kho không có cột email
@@ -72,4 +72,16 @@ test('trang xoá dữ liệu: hướng dẫn + ô tài khoản (ẩn với khác
 test('sảnh có liên kết chân trang tới 3 trang', async () => {
   const { html } = await get('/');
   for (const p of Object.keys(PAGES)) assert.match(html, new RegExp(`class="foot-links"[\\s\\S]*href="${p}"`), p);
+});
+
+test('trang pháp lý (vi + en) không còn nhắc đăng nhập bằng Facebook (chỉ có Google); nút chia sẻ Facebook được phép nhắc', async () => {
+  for (const p of ['/dieu-khoan', '/en/terms', '/chinh-sach-bao-mat', '/en/privacy', '/xoa-du-lieu', '/en/data-deletion']) {
+    const { status, html } = await get(p);
+    assert.equal(status, 200, p);
+    const text = html.replace(/<script[\s\S]*?<\/script>/g, ''); // mã hiển thị loại tài khoản cũ trong <script> không tính
+    assert.doesNotMatch(text, /Google\s*(\/|hoặc|hay|or)\s*Facebook|Facebook\s*(\/|hoặc|or)\s*Google|public_profile|app-scoped|Apps and websites|Ứng dụng và trang web/i, p);
+    // "Facebook" chỉ còn trong câu về nút chia sẻ (Zalo, Messenger, Facebook)
+    for (const m of text.matchAll(/[^.<>]*Facebook[^.<>]*/g)) assert.match(m[0], /Zalo, Messenger, Facebook/, p + ': ' + m[0].trim());
+    assert.match(text, /Google/, p);
+  }
 });

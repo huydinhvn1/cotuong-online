@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<!-- Mẫu ảnh xem trước khi chia sẻ (1200×630). Tạo lại: node scripts/make-og-image.js -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@700&display=block">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body { font-family: 'Be Vietnam Pro', sans-serif; color: #f5ead9; position: relative;
+    background: radial-gradient(900px 520px at 92% -12%, rgba(217,166,73,.26), transparent 60%), radial-gradient(760px 560px at -8% 112%, rgba(184,34,27,.30), transparent 62%), linear-gradient(180deg, #2a1e17, #17110e); }
+  body::after { content: ''; position: absolute; inset: 0; opacity: .06; pointer-events: none;
+    background: repeating-linear-gradient(45deg, #f0c36d 0 1px, transparent 1px 26px), repeating-linear-gradient(-45deg, #f0c36d 0 1px, transparent 1px 26px); }
+  .board { position: absolute; left: 56px; top: 50px; width: 470px; height: 520px; border-radius: 18px; transform: rotate(-4deg);
+    background: repeating-linear-gradient(91deg, rgba(110,60,15,.055) 0 2px, transparent 2px 7px, rgba(110,60,15,.03) 7px 8px, transparent 8px 15px), radial-gradient(ellipse 120% 80% at 30% 15%, #f6d9a2, #e7bb73 50%, #d29d55);
+    box-shadow: inset 0 0 0 6px #8a5426, inset 0 0 0 9px #c58b4a, inset 0 0 40px rgba(90,45,10,.35), 0 3px 0 #5c3415, 0 40px 70px -10px rgba(0,0,0,.75), 0 12px 24px rgba(0,0,0,.4); }
+  .board svg { position: absolute; inset: 0; }
+  .pc { position: absolute; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; display: grid; place-items: center;
+    font-family: 'LXGW WenKai TC', 'Noto Serif CJK TC', serif; font-weight: 700; font-size: 34px; line-height: 1;
+    background: radial-gradient(circle at 36% 30%, #fffaf0 0%, #f4e2bb 45%, #dfba7c 85%, #c99d5c 100%);
+    box-shadow: 0 3px 0 #94622f, 0 6px 10px rgba(40,20,5,.45), inset 0 -2px 4px rgba(120,70,20,.25); }
+  .pc::before { content: ''; position: absolute; inset: 8%; border-radius: 50%; border: 2px solid currentColor; opacity: .85; }
+  .pc.r { color: #b8221b; } .pc.b { color: #1e1e1e; }
+  .pc span { position: relative; top: -1px; text-shadow: 0 1px 0 rgba(255,255,255,.55); }
+  .pc.h { background: radial-gradient(circle at 36% 30%, #e7c58c 0%, #c9955a 48%, #a8733d 85%, #8d5d2e 100%); }
+  .pc.h i { width: 58%; height: 58%; border-radius: 50%; opacity: .9;
+    background: radial-gradient(circle, rgba(255,240,210,.55) 0 14%, transparent 15%), repeating-linear-gradient(45deg, rgba(90,50,18,.32) 0 1px, transparent 1px 22%), repeating-linear-gradient(-45deg, rgba(90,50,18,.32) 0 1px, transparent 1px 22%), radial-gradient(circle at 40% 35%, #d9ab6c, #b27c43);
+    box-shadow: inset 0 0 0 2px currentColor, inset 0 2px 4px rgba(60,30,5,.35); }
+  .pc.last { box-shadow: 0 3px 0 #94622f, 0 6px 10px rgba(40,20,5,.45), 0 0 0 4px rgba(66,160,255,.8); }
+  .text { position: absolute; left: 590px; top: 70px; right: 56px; }
+  .brand { display: flex; align-items: center; gap: 14px; font-weight: 700; font-size: 24px; letter-spacing: 3px; text-transform: uppercase; color: #f0c36d; }
+  .brand .m { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; font-family: 'LXGW WenKai TC', serif; font-size: 30px; color: #b8221b; letter-spacing: 0;
+    background: radial-gradient(circle at 35% 30%, #fffaf0, #f2ddb2 55%, #d6ad6c); box-shadow: 0 3px 0 #9b6a36, inset 0 0 0 4px #f6e6c4, inset 0 0 0 6px #b8221b; }
+  h1 { margin-top: 28px; font-size: 68px; line-height: 1.04; font-weight: 800; letter-spacing: -1.5px; }
+  h1 em { font-style: normal; background: linear-gradient(90deg, #f0c36d, #e3793a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .free { margin-top: 18px; display: inline-flex; align-items: center; gap: 12px; padding: 10px 22px 10px 16px; border-radius: 999px; font-size: 30px; font-weight: 800; color: #1b120c;
+    background: linear-gradient(90deg, #f0c36d, #e39a3a); box-shadow: 0 8px 24px rgba(227,154,58,.35); }
+  .free b { width: 34px; height: 34px; border-radius: 50%; background: #1b120c; color: #f0c36d; display: grid; place-items: center; font-size: 20px; }
+  ul { list-style: none; padding: 0; margin-top: 26px; display: grid; gap: 10px; font-size: 24px; font-weight: 600; color: #e7d8c1; }
+  li { display: flex; align-items: center; gap: 12px; }
+  li::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: #e0584c; box-shadow: 0 0 0 4px rgba(224,88,76,.22); }
+  .url { position: absolute; right: 56px; bottom: 44px; display: flex; align-items: center; gap: 12px; padding: 12px 24px; border-radius: 16px; font-size: 32px; font-weight: 800; letter-spacing: .5px;
+    background: rgba(255,244,225,.08); border: 2px solid rgba(217,166,73,.55); color: #fff4e1; }
+  .url small { font-size: 18px; font-weight: 600; color: #b5a38c; letter-spacing: 0; }
+</style>
+</head>
+<body>
+  <div class="board" id="board"></div>
+  <div class="text">
+    <div class="brand"><span class="m">帥</span>cotuongvn.net</div>
+    <h1>Cờ Tướng &amp;<br><em>Cờ Úp</em> Online</h1>
+    <div class="free"><b>✓</b>Chơi miễn phí</div>
+    <ul>
+      <li>Chơi với máy – 5 cấp độ</li>
+      <li>Mời bạn bè qua link Zalo, Messenger</li>
+      <li>Tìm đối thủ, tính Elo</li>
+    </ul>
+  </div>
+  <div class="url"><small>Chơi ngay tại</small>cotuongvn.net</div>
+<script>
+  // bàn cờ 9×10 cột/hàng, chỉ vẽ phần trên + sông + một phần dưới (cắt bởi khung)
+  var W = 470, H = 520, M = 34, cx = (W - 2 * M) / 8, cy = cx * 1.0, X = c => M + c * cx, Y = r => M + r * cy;
+  var s = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '"><g stroke="#6b3f1d" stroke-width="2.2" fill="none">';
+  s += '<rect x="' + (M - 9) + '" y="' + (M - 9) + '" width="' + (8 * cx + 18) + '" height="' + (9 * cy + 18) + '" stroke-width="3"/>';
+  for (var r = 0; r < 10; r++) s += '<line x1="' + X(0) + '" x2="' + X(8) + '" y1="' + Y(r) + '" y2="' + Y(r) + '"/>';
+  for (var c = 0; c < 9; c++) { s += '<line x1="' + X(c) + '" x2="' + X(c) + '" y1="' + Y(0) + '" y2="' + Y(4) + '"/>'; s += '<line x1="' + X(c) + '" x2="' + X(c) + '" y1="' + Y(5) + '" y2="' + Y(9) + '"/>'; }
+  s += '<line x1="' + X(0) + '" x2="' + X(0) + '" y1="' + Y(4) + '" y2="' + Y(5) + '"/><line x1="' + X(8) + '" x2="' + X(8) + '" y1="' + Y(4) + '" y2="' + Y(5) + '"/>';
+  s += '<line x1="' + X(3) + '" y1="' + Y(0) + '" x2="' + X(5) + '" y2="' + Y(2) + '"/><line x1="' + X(5) + '" y1="' + Y(0) + '" x2="' + X(3) + '" y2="' + Y(2) + '"/>' + '<line x1="' + X(3) + '" y1="' + Y(7) + '" x2="' + X(5) + '" y2="' + Y(9) + '"/><line x1="' + X(5) + '" y1="' + Y(7) + '" x2="' + X(3) + '" y2="' + Y(9) + '"/></g>';
+  s += '<text x="' + X(2) + '" y="' + (Y(4) + cy * .66) + '" text-anchor="middle" font-family="LXGW WenKai TC, serif" font-weight="700" font-size="34" fill="rgba(107,63,29,.82)">楚 河</text>';
+  s += '<text x="' + X(6) + '" y="' + (Y(4) + cy * .66) + '" text-anchor="middle" font-family="LXGW WenKai TC, serif" font-weight="700" font-size="34" fill="rgba(107,63,29,.82)">漢 界</text></svg>';
+  var b = document.getElementById('board'); b.innerHTML = s;
+  // thế cờ minh hoạ: đen ở trên (một số quân còn úp – cờ úp), đỏ ở dưới
+  var P = [['b', '將', 4, 0], ['b', '士', 3, 0], ['b', 'h', 5, 0], ['b', 'h', 0, 0], ['b', '車', 1, 2], ['b', 'h', 2, 0], ['b', '馬', 6, 2], ['b', 'h', 8, 0],
+           ['b', '砲', 7, 2], ['b', '卒', 0, 3], ['b', 'h', 4, 3], ['b', '卒', 6, 3],
+           ['r', '炮', 4, 4, 'last'], ['r', '兵', 2, 5], ['r', '兵', 8, 6], ['r', '傌', 6, 7], ['r', '俥', 0, 8], ['r', '相', 2, 9], ['r', '帥', 4, 9]];
+  P.forEach(function (p) {
+    var e = document.createElement('div'); e.className = 'pc ' + p[0] + (p[1] === 'h' ? ' h' : '') + (p[4] ? ' ' + p[4] : '');
+    e.style.left = X(p[2]) + 'px'; e.style.top = Y(p[3]) + 'px';
+    e.innerHTML = p[1] === 'h' ? '<i></i>' : '<span>' + p[1] + '</span>';
+    b.appendChild(e);
+  });
+</script>
+</body>
+</html>

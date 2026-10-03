@@ -9,9 +9,10 @@
 
   // ---------- Chung ----------
   def('title', 'Cờ Tướng Online', 'Xiangqi Online');
+  def('title.home', 'Cờ Tướng Online – Chơi cờ tướng với máy, Cờ Úp miễn phí', 'Xiangqi Online – Play Chinese Chess & Jieqi Free');
   def('title.myTurn', '● Đến lượt bạn – ', '● Your move – ');
   def('title.unread', '({n}) Tin nhắn mới – Cờ Tướng', '({n}) New messages – Xiangqi');
-  def('meta.desc', 'Chơi cờ tướng online với bạn bè hoặc với máy – miễn phí, không cần cài đặt.', 'Play Xiangqi (Chinese chess) online with friends or against the computer – free, nothing to install.');
+  def('meta.desc', 'Chơi cờ tướng online miễn phí với bạn bè hoặc chơi cờ tướng với máy 5 cấp độ, cờ úp online, tìm đối thủ có Elo. Không cần cài đặt – chơi ngay trên điện thoại và máy tính.', 'Play Xiangqi (Chinese chess) online for free – with friends, against the computer at 5 levels, or Jieqi (hidden pieces) with rated matchmaking. Nothing to install – play on phone or desktop.');
   def('brand', 'Cờ Tướng<small>online</small>', 'Xiangqi<small>online</small>');
   def('lang.btn', 'VI', 'EN');
   def('lang.aria', 'Ngôn ngữ: Tiếng Việt – chuyển sang English', 'Language: English – switch to Vietnamese');
@@ -207,6 +208,22 @@
   def('badge.title.rated', 'Đang chơi {v} – ván xếp hạng', 'Playing {v} – rated game');
   def('copied', 'Đã sao chép', 'Copied');
   def('copy.done', 'Đã chép', 'Copied');
+  def('sh.title', 'Chia sẻ', 'Share');
+  def('sh.zalo', 'Zalo', 'Zalo');
+  def('sh.messenger', 'Messenger', 'Messenger');
+  def('sh.facebook', 'Facebook', 'Facebook');
+  def('sh.more', 'Khác…', 'More…');
+  def('sh.copy', 'Sao chép', 'Copy link');
+  def('sh.via', 'Chia sẻ qua {app}', 'Share via {app}');
+  def('sh.pasteZalo', 'Đã sao chép link – mở Zalo và dán vào cuộc trò chuyện nhé!', 'Link copied – open Zalo and paste it into a chat!');
+  def('sh.pasteMessenger', 'Đã sao chép link – dán vào Messenger để gửi cho bạn bè nhé!', 'Link copied – paste it into Messenger to send to a friend!');
+  def('sh.copied', 'Đã sao chép link!', 'Link copied!');
+  def('sh.room.h', 'Mời bạn vào phòng', 'Invite a friend');
+  def('sh.web.btn', 'Chia sẻ web', 'Share this site');
+  def('sh.web.h', 'Chia sẻ Cờ Tướng Online', 'Share Xiangqi Online');
+  def('sh.web.lead', 'Rủ bạn bè cùng chơi cờ tướng, cờ úp online miễn phí – gửi link qua Zalo, Messenger hoặc Facebook.', 'Invite friends to play Xiangqi and Jieqi online for free – send the link via Zalo, Messenger or Facebook.');
+  def('sh.web.text', 'Chơi cờ tướng & cờ úp online miễn phí, không cần cài đặt: chơi với máy hoặc mời bạn bè qua link.', 'Play Xiangqi & Jieqi online for free, nothing to install: play the computer or invite friends with a link.');
+  def('sh.web.strip', 'Thấy hay? Rủ bạn bè cùng chơi!', 'Enjoying it? Invite your friends!');
   def('copy.btn', 'Sao chép', 'Copy');
   def('copy.fail', 'Không sao chép được – hãy chép tay: {text}', "Couldn't copy – please copy it manually: {text}");
   def('copied.code', 'Đã sao chép mã phòng', 'Room code copied');
@@ -276,7 +293,7 @@
   def('block.p', 'Người bị chặn sẽ không gửi tin nhắn cho bạn được nữa. Bạn có thể bỏ chặn bất cứ lúc nào.', 'A blocked player can no longer send you messages. You can unblock them at any time.');
 
   // ---------- Tin nhắn riêng ----------
-  def('dm.guest', 'Đăng nhập (Google / Facebook) để nhắn tin riêng với người chơi khác. Khách không gửi / nhận tin nhắn được.', 'Sign in (Google / Facebook) to send private messages to other players. Guests cannot send or receive messages.');
+  def('dm.guest', 'Đăng nhập bằng Google để nhắn tin riêng với người chơi khác. Khách không gửi / nhận tin nhắn được.', 'Sign in with Google to send private messages to other players. Guests cannot send or receive messages.');
   def('dm.blockedTag', 'Đã chặn', 'Blocked');
   def('dm.you', 'Bạn: ', 'You: ');
   def('dm.none', 'Chưa có tin nhắn nào.<br>Chạm vào ảnh đại diện của người chơi (trong ván hoặc sau khi ghép trận) rồi chọn <b>Nhắn tin</b>.', 'No messages yet.<br>Tap a player’s avatar (during a game or after a quick match) and choose <b>Message</b>.');
@@ -326,8 +343,15 @@
   var LANGS = ['vi', 'en'], KEY = 'ct_lang';
   function norm(l) { return /^vi/i.test(String(l || '').trim()) ? 'vi' : 'en'; }
   function detect() {
+    // ?lang=vi|en trong đường dẫn (link hreflang / chia sẻ) được ưu tiên và ghi nhớ
+    try {
+      var q = root.location && /[?&]lang=(vi|en)\b/i.exec(root.location.search || '');
+      if (q) { var ql = q[1].toLowerCase(); try { root.localStorage && root.localStorage.setItem(KEY, ql); } catch (e) { } return ql; }
+    } catch (e) { }
     try { var s = root.localStorage && root.localStorage.getItem(KEY); if (s === 'vi' || s === 'en') return s; } catch (e) { }
     var nav = root.navigator || {};
+    // máy tìm kiếm / bot xem trước link (Googlebot, Facebook, Zalo…) thường báo en-US: giữ trang gốc tiếng Việt
+    if (/bot\b|crawler|spider|googlebot|bingbot|facebookexternalhit|facebot|zalo|slurp|duckduck|yandex|baidu|coccoc/i.test(nav.userAgent || '')) return 'vi';
     var list = (nav.languages && nav.languages.length ? [nav.languages[0]] : []).concat(nav.language ? [nav.language] : []);
     return norm(list[0] || 'vi');
   }
