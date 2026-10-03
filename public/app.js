@@ -60,7 +60,8 @@
   var REASON = {
     checkmate: 'Chiếu bí', stalemate: 'Hết nước đi (bị vây)', timeout: 'Hết giờ', resign: 'Xin thua',
     agreement: 'Hai bên đồng ý hoà', repetition: 'Lặp lại thế cờ 3 lần', nocapture: '120 nước liên tiếp không ăn quân',
-    insufficient: 'Không còn quân tấn công', perpetual: 'Chiếu dai (chiếu lặp lại) bị cấm – bên chiếu không còn nước khác'
+    insufficient: 'Không còn quân tấn công', perpetual: 'Chiếu dai (chiếu lặp lại) bị cấm – bên chiếu không còn nước khác',
+    abandon: 'Rời ván quá lâu (mất kết nối)', aborted: 'Một bên rời đi trước khi đủ 2 nước – không tính điểm'
   };
   var ICONS = {
     undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
@@ -361,7 +362,8 @@
       sub = caps ? '<span class="captured">' + caps + '</span>' : '<span>' + (isMe ? 'Bạn · ' : '') + 'Quân ' + SIDE_NAME[side] + '</span>';
       h += '<div class="avatar ' + side + '">' + CH[side === 'r' ? 'K' : 'k'] + '</div>';
       h += '<div class="pinfo"><div class="pname">' + (online !== null ? '<i class="dot' + (online ? ' on' : '') + '" title="' + (online ? 'Đang online' : 'Mất kết nối') + '"></i>' : '') +
-        esc(name) + (isMe && S.mode === 'online' ? ' <small style="color:var(--gold2);font-weight:600">(bạn)</small>' : '') + '</div><div class="psub">' + sub + '</div></div>';
+        esc(name) + (seat && seat.rating != null && S.mode === 'online' ? ' <small class="elo" title="Elo">' + seat.rating + '</small>' : '') +
+        (isMe && S.mode === 'online' ? ' <small style="color:var(--gold2);font-weight:600">(bạn)</small>' : '') + '</div><div class="psub">' + sub + '</div></div>';
       if (S.mode === 'online' && !seat && !S.myColor && S.status !== 'playing') h += '<button class="btn primary sit-btn" data-sit="' + side + '">Ngồi vào</button>';
       if (S.clocks) h += '<div class="clock" data-clock="' + side + '">' + fmtClock(clockOf(side)) + '</div>';
       el.innerHTML = h;
@@ -381,6 +383,7 @@
   function statusText() {
     if (isOver()) {
       var r = S.result || {};
+      if (r.reason === 'aborted') return { t: 'Ván bị huỷ', cls: '' };
       if (!r.winner) return { t: 'Hoà cờ · ' + (REASON[r.reason] || ''), cls: '' };
       return { t: (S.myColor ? (r.winner === S.myColor ? 'Bạn thắng' : 'Bạn thua') : SIDE_NAME[r.winner] + ' thắng') + ' · ' + (REASON[r.reason] || ''), cls: '', dot: r.winner };
     }
@@ -464,7 +467,7 @@
       var tc = S.timeControl ? (S.timeControl.base / 60000) + ' phút' + (S.timeControl.inc ? ' + ' + S.timeControl.inc / 1000 + 's' : '') : 'Không giới hạn';
       h += '<div class="room-head"><div><div class="room-label">Mã phòng</div><div class="room-code">' + S.roomId + '</div></div>' +
         '<button class="icon-btn" data-act="copycode" title="Sao chép mã">' + icon('copy') + '</button></div>';
-      h += '<div class="room-meta">' + variantTag() + '<span>⏱ ' + tc + '</span><span>👁 ' + S.spectators + ' người xem</span><span>Ván #' + S.gameNo + '</span></div>';
+      h += '<div class="room-meta">' + (S.rated ? '<span class="rated-tag" title="Ván ghép trận tự động – tính Elo">Xếp hạng</span>' : '') + variantTag() + '<span>⏱ ' + tc + '</span><span>👁 ' + S.spectators + ' người xem</span><span>Ván #' + S.gameNo + '</span></div>';
       h += '<div class="share-row"><div class="link">' + esc(roomLink()) + '</div><button class="btn primary" data-act="share">' + icon('share') + 'Mời bạn</button></div>';
     } else if (S.mode === 'ai') {
       h += '<div class="room-head"><div><div class="room-label">Chơi với máy</div><div class="room-code" style="letter-spacing:0;font-size:22px">Cấp ' + LEVEL_NAMES[S.ai.level] + '</div></div>' +
@@ -531,7 +534,8 @@
   }
   function endGameUI() {
     var r = S.result || {}, title, king;
-    if (!r.winner) { title = 'Hoà cờ'; king = '<div class="piece big-piece r" style="left:auto;top:auto"><span>和</span></div>'; }
+    if (r.reason === 'aborted') { title = 'Ván bị huỷ'; king = '<div class="piece big-piece r" style="left:auto;top:auto"><span>和</span></div>'; }
+    else if (!r.winner) { title = 'Hoà cờ'; king = '<div class="piece big-piece r" style="left:auto;top:auto"><span>和</span></div>'; }
     else {
       title = S.myColor ? (r.winner === S.myColor ? 'Bạn thắng! 🎉' : 'Bạn thua rồi') : 'Quân ' + SIDE_NAME[r.winner] + ' thắng';
       king = '<div class="piece big-piece ' + r.winner + '" style="left:auto;top:auto"><span>' + CH[r.winner === 'r' ? 'K' : 'k'] + '</span></div>';
@@ -540,8 +544,8 @@
     if (r.winner && (r.reason === 'checkmate' || r.reason === 'stalemate' || r.reason === 'timeout' || r.reason === 'resign'))
       why = (r.reason === 'resign' ? 'Quân ' + SIDE_NAME[X.other(r.winner)] + ' xin thua' : why + ' – quân ' + SIDE_NAME[r.winner] + ' thắng');
     var canRematch = S.mode === 'ai' || !!S.myColor;
-    openModal(king + '<h3>' + title + '</h3><p>' + why + ' · ' + S.moves.length + ' nước</p><div class="row"><button class="btn" data-act="modal-close">Xem lại bàn cờ</button>' +
-      (canRematch ? '<button class="btn primary" data-act="modal-rematch">' + (S.mode === 'ai' ? 'Ván mới' : 'Chơi lại') + '</button>' : '') + '</div>');
+    openModal(king + '<h3>' + title + '</h3><p>' + why + ' · ' + S.moves.length + ' nước</p>' + (S.rated && S.myColor ? '<p class="end-elo" id="endElo">' + eloLine() + '</p>' : '') + '<div class="row"><button class="btn" data-act="modal-close">Xem lại bàn cờ</button>' +
+      (canRematch ? '<button class="btn primary" data-act="modal-rematch">' + (S.mode === 'ai' ? 'Ván mới' : 'Chơi lại') + '</button>' : '') + '</div>', 'end');
     Sound.play(!r.winner ? 'notify' : (S.myColor && r.winner !== S.myColor) ? 'lose' : 'win');
     renderAll();
   }
@@ -603,6 +607,7 @@
       moves: S.game.history.map(function (h) { return [h.from, h.to]; }), over: isOver(), result: S.result }));
   }
   function startAI(level, human, saved, variant, deal) {
+    mmStop(true);
     resetWorker(); leaveOnline();
     S.mode = 'ai'; S.ai.level = level; S.myColor = human; S.flipped = human === 'b';
     S.variant = variant === 'jieqi' ? 'jieqi' : 'standard';
@@ -632,6 +637,7 @@
         ws.send(JSON.stringify({ type: 'hello', token: token, name: myName || defaultName() }));
         self.ready = true;
         if (S.mode === 'online' && S.roomId) ws.send(JSON.stringify({ type: 'join', roomId: S.roomId }));
+        else if (MM.state === 'searching') ws.send(JSON.stringify({ type: 'mm_join', variant: MM.variant })); // mất kết nối khi đang tìm: tìm lại
         self.queue.splice(0).forEach(function (m) { ws.send(JSON.stringify(m)); });
         connBanner(false);
       };
@@ -655,8 +661,12 @@
       case 'chat': addChatMsg(m.message); break;
       case 'account': if (m.user && Account.user && m.user.id === Account.user.id) { Account.user = m.user; renderAccount(); } break;
       case 'toast': toast(m.text); Sound.play('notify'); break;
+      case 'mm_status': onMMStatus(m); break;
+      case 'mm_found': onMMFound(m); break;
+      case 'rating': onRating(m); break;
       case 'error':
         toast(m.text, true);
+        if (m.code === 'mm_login') mmStop(false);
         if (m.code === 'no_room') { store.del('ct_last_room'); S.mode = null; S.roomId = null; showView('lobby'); history.replaceState(null, '', '/'); }
         break;
     }
@@ -668,7 +678,7 @@
     var prevColor = S.myColor;
     S.mode = 'online'; S.roomId = room.id; S.gameNo = room.gameNo;
     S.myColor = m.you.color; S.seats = room.seats; S.spectators = room.spectators;
-    S.status = room.status; S.result = room.result; S.pending = room.pending; S.timeControl = room.timeControl;
+    S.status = room.status; S.result = room.result; S.pending = room.pending; S.timeControl = room.timeControl; S.rated = !!room.rated;
     S.clocks = room.timeControl ? room.clocks : null; S.running = room.running; S.clockAt = Date.now();
     var localBoardBefore = S.game.board.slice();
     // dựng lại ván từ đầu theo danh sách nước để có lịch sử thế cờ (luật cấm chiếu dai); lệch thì dùng FEN
@@ -828,6 +838,7 @@
   function joinRoomById(id) {
     id = String(id).trim().toUpperCase();
     if (!/^[A-Z0-9]{4,12}$/.test(id)) { toast('Mã phòng không hợp lệ', true); return; }
+    mmStop(true);
     if (S.mode === 'ai') resetWorker();
     S.mode = 'online'; S.roomId = id; S.gameNo = 0; S.moves = []; S.game = new X.Game(); prevBoard = null;
     $('#chatList').innerHTML = '';
@@ -866,13 +877,13 @@
   $('#nameInput').addEventListener('change', function () { setName(this.value.trim() || defaultName()); });
   function ensureName() { if (Account.user) return; var v = $('#nameInput').value.trim(); if (v !== myName || !myName) setName(v || defaultName()); }
   $('#createBtn').onclick = function () {
-    Sound.init(); ensureName();
+    Sound.init(); ensureName(); mmStop(true);
     if (S.mode === 'ai') resetWorker();
     S.mode = 'online'; S.roomId = null; S.gameNo = 0; S.moves = []; prevBoard = null; $('#chatList').innerHTML = '';
     Net.send({ type: 'create', variant: segVal('variantSeg'), minutes: +segVal('tcSeg'), increment: +segVal('incSeg'), color: segVal('colorSeg') });
   };
-  $('#joinForm').addEventListener('submit', function (e) { e.preventDefault(); Sound.init(); ensureName(); joinRoomById($('#codeInput').value); });
-  $('#aiBtn').onclick = function () { Sound.init(); ensureName(); startAI(+segVal('levelSeg'), segVal('aiColorSeg'), null, segVal('aiVariantSeg')); };
+  $('#joinForm').addEventListener('submit', function (e) { e.preventDefault(); Sound.init(); ensureName(); mmStop(true); joinRoomById($('#codeInput').value); });
+  $('#aiBtn').onclick = function () { Sound.init(); ensureName(); mmStop(true); startAI(+segVal('levelSeg'), segVal('aiColorSeg'), null, segVal('aiVariantSeg')); };
   function renderResume() {
     var box = $('#resumeBox'), h = '', saved = null;
     try { saved = JSON.parse(store.get('ct_ai', 'null')); } catch (e) { }
@@ -898,7 +909,8 @@
       var initial = esc((u.name || '?').trim().charAt(0).toUpperCase());
       box.innerHTML = '<div class="acc-user">' +
         '<span class="acc-avatar">' + (u.avatar ? '<img src="' + esc(u.avatar) + '" alt="" referrerpolicy="no-referrer">' : '') + '<i>' + initial + '</i></span>' +
-        '<div class="acc-info"><b>' + esc(u.name) + '</b><span class="acc-stats">Thắng <em>' + (u.wins | 0) + '</em> · Thua <em>' + (u.losses | 0) + '</em> · Hoà <em>' + (u.draws | 0) + '</em></span></div>' +
+        '<div class="acc-info"><b>' + esc(u.name) + '</b><span class="acc-stats">Thắng <em>' + (u.wins | 0) + '</em> · Thua <em>' + (u.losses | 0) + '</em> · Hoà <em>' + (u.draws | 0) + '</em></span>' +
+        '<span class="acc-elo" id="accElo">Elo · <span>Cờ tướng <em>' + ratingOf(u, 'standard').rating + '</em></span> · <span>Cờ úp <em>' + ratingOf(u, 'jieqi').rating + '</em></span></span></div>' +
         '<button class="btn acc-out" id="logoutBtn" type="button">Đăng xuất</button></div>';
       var img = box.querySelector('img'); if (img) img.onerror = function () { img.remove(); };
       $('#logoutBtn').onclick = function () {
@@ -906,6 +918,7 @@
         fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' }).then(function () { location.reload(); }, function () { location.reload(); });
       };
       box.hidden = false;
+      renderQuick();
       return;
     }
     var next = encodeURIComponent(location.pathname || '/'), btns = '';
@@ -913,7 +926,85 @@
     if (p.facebook) btns += '<a class="acc-btn facebook" href="/auth/facebook?next=' + next + '">' + BRAND.facebook + '<span>Đăng nhập Facebook</span></a>';
     box.innerHTML = btns ? '<div class="acc-guest"><span class="acc-status"><i></i>Chơi với tư cách khách</span><div class="acc-btns">' + btns + '</div></div>' : '';
     box.hidden = !btns; // không bật nhà cung cấp nào -> sảnh giữ nguyên như cũ
+    renderQuick();
   }
+
+  // ---------- Ghép trận tự động (chỉ người đã đăng nhập) ----------
+  var MM = { state: 'idle', variant: 'standard', since: 0, rating: 1200, timer: null };
+  function ratingOf(u, v) { return (u && u.ratings && u.ratings[v]) || { rating: 1200, games: 0 }; }
+  function mmGap(ms) { return ms >= 60000 ? null : 100 + 50 * Math.floor(ms / 5000); } // giống server
+  function renderQuick() {
+    var u = Account.user, p = Account.providers || {}, searching = MM.state === 'searching';
+    $('#quickMatch').hidden = !u && !p.google && !p.facebook;
+    $('#mmIdle').hidden = searching; $('#mmSearching').hidden = !searching;
+    $('#quickMatch').classList.toggle('is-searching', searching);
+    $('#mmBtn').disabled = !u;
+    var v = segVal('mmVariantSeg') || 'standard';
+    if (!u) $('#mmNote').innerHTML = '<button type="button" class="help-link" id="mmLogin">Đăng nhập để tìm đối thủ tự động</button>';
+    else {
+      var r = ratingOf(u, v);
+      $('#mmNote').innerHTML = 'Elo ' + VARIANT_NAME[v] + ' của bạn: <b>' + r.rating + '</b> · ' + (r.games ? r.games + ' ván xếp hạng' : 'chưa có ván xếp hạng');
+    }
+    if (searching) tickMM();
+  }
+  function tickMM() {
+    var ms = Math.max(0, Date.now() - MM.since), s = Math.floor(ms / 1000), g = mmGap(ms);
+    $('#mmTime').textContent = Math.floor(s / 60) + ':' + ('0' + s % 60).slice(-2);
+    $('#mmInfo').textContent = VARIANT_NAME[MM.variant] + ' · Elo ' + MM.rating + ' · ' + (g == null ? 'mọi trình độ' : 'chênh tối đa ±' + g);
+  }
+  function mmStart() {
+    if (!Account.user) { toast('Đăng nhập để tìm đối thủ tự động', true); return; }
+    Sound.init();
+    MM.variant = segVal('mmVariantSeg') || 'standard'; MM.rating = ratingOf(Account.user, MM.variant).rating;
+    MM.state = 'searching'; MM.since = Date.now();
+    clearInterval(MM.timer); MM.timer = setInterval(tickMM, 250);
+    renderQuick();
+    Net.send({ type: 'mm_join', variant: MM.variant });
+  }
+  function mmStop(send) {
+    if (MM.state !== 'searching') return;
+    if (send) Net.send({ type: 'mm_leave' });
+    MM.state = 'idle'; clearInterval(MM.timer); renderQuick();
+  }
+  function onMMStatus(m) {
+    if (m.state === 'searching') {
+      MM.state = 'searching'; MM.variant = m.variant; MM.rating = m.rating; MM.since = Date.now() - (m.waited | 0);
+      if (!MM.timer) MM.timer = setInterval(tickMM, 250);
+      renderQuick();
+    } else if (MM.state === 'searching') {
+      mmStop(false); MM.timer = null;
+      if (m.reason === 'other_tab') toast('Bạn đang tìm đối thủ ở thẻ hoặc thiết bị khác');
+    }
+  }
+  function onMMFound(m) {
+    MM.state = 'idle'; clearInterval(MM.timer); MM.timer = null; renderQuick();
+    if (S.mode === 'ai') resetWorker();
+    S.mode = 'online'; S.roomId = m.roomId; S.gameNo = 0; S.moves = []; prevBoard = null; $('#chatList').innerHTML = '';
+    history.pushState('room', '', '/r/' + m.roomId); store.set('ct_last_room', m.roomId);
+    toast('Đã tìm thấy đối thủ: ' + m.opponent.name + ' (Elo ' + m.opponent.rating + ') – bạn cầm quân ' + SIDE_NAME[m.color]);
+    Sound.play('notify');
+  }
+  var lastRating = null;
+  function eloLine() {
+    var r = lastRating;
+    if ((S.result && S.result.reason === 'aborted') || S.moves.length < 2) return 'Ván chưa đủ 2 nước – không tính Elo';
+    if (!r || r.roomId !== S.roomId || Date.now() - r.at > 15000) return 'Đang cập nhật Elo…';
+    return 'Elo ' + VARIANT_NAME[r.variant] + ': ' + r.before + ' → <b>' + r.after + '</b> (' + (r.delta >= 0 ? '+' : '') + r.delta + ')';
+  }
+  function onRating(m) {
+    lastRating = { roomId: m.roomId, variant: m.variant, before: m.before, after: m.after, delta: m.delta, at: Date.now() };
+    if (Account.user) { Account.user.ratings = Account.user.ratings || {}; Account.user.ratings[m.variant] = { rating: m.after, games: m.games }; renderAccount(); }
+    var el = $('#endElo');
+    if (el) el.innerHTML = eloLine();
+    else if (!(S.mode === 'online' && S.roomId === m.roomId)) toast('Elo ' + VARIANT_NAME[m.variant] + ': ' + m.after + ' (' + (m.delta >= 0 ? '+' : '') + m.delta + ')');
+  }
+  $('#mmBtn').onclick = mmStart;
+  $('#mmCancel').onclick = function () { mmStop(true); };
+  $('#mmVariantSeg').addEventListener('click', function () { setTimeout(renderQuick, 0); });
+  $('#quickMatch').addEventListener('click', function (e) {
+    if (!e.target.closest('#mmLogin')) return;
+    var acc = $('#account'); if (acc && !acc.hidden) { acc.scrollIntoView({ behavior: 'smooth', block: 'center' }); var b = acc.querySelector('.acc-btn'); if (b) b.focus({ preventScroll: true }); }
+  });
   function loadAccount() {
     var done = fetch('/api/me', { credentials: 'same-origin', cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })

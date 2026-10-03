@@ -8,6 +8,7 @@ const { WebSocketServer } = require('ws');
 const X = require('./shared/xiangqi');
 const { createStore } = require('./lib/store');
 const { createAuth } = require('./lib/auth');
+const { Matchmaker, allowedGap } = require('./lib/matchmaker');
 
 const PORT = +process.env.PORT || 3000;
 const app = express();
@@ -24,7 +25,7 @@ app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] })
 const LEGAL = { '/privacy': 'chinh-sach-bao-mat', '/privacy-policy': 'chinh-sach-bao-mat', '/terms': 'dieu-khoan', '/data-deletion': 'xoa-du-lieu' };
 for (const [alias, page] of Object.entries(LEGAL)) app.get(alias, (req, res) => res.sendFile(path.join(__dirname, 'public', page + '.html')));
 app.use('/shared', express.static(path.join(__dirname, 'shared')));
-app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size, uptime: process.uptime() | 0 }));
+app.get('/health', (req, res) => res.json({ ok: true, rooms: rooms.size, queue: mm.size, uptime: process.uptime() | 0 }));
 app.get('/r/:id', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const server = http.createServer(app);
@@ -32,6 +33,11 @@ const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 16 * 1024 });
 
 /** @type {Map<string, any>} */
 const rooms = new Map();
+// Ghép trận tự động (chỉ người đã đăng nhập). Ván ghép trận được tính Elo; phòng tự tạo thì không.
+const mm = new Matchmaker();
+const MM_TIME = { minutes: 10, increment: 5 };                  // thời gian ván xếp hạng: 10 phút + 5 giây/nước
+const ABANDON_MS = Math.max(1000, +process.env.ABANDON_MS || 60000); // ván xếp hạng: mất kết nối quá lâu -> xử thua
+let wsSeq = 0;
 const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function newRoomId() {
   let id;
@@ -76,13 +82,18 @@ function liveClocks(room) {
 
 function snapshot(room, ws) {
   const g = room.game;
-  const seat = s => room.seats[s] ? { name: room.seats[s].name, online: online(room, room.seats[s].token) } : null;
+  const seat = s => {
+    const st = room.seats[s]; if (!st) return null;
+    const o = { name: st.name, online: online(room, st.token) };
+    if (room.rated && st.uid && room.ratingOf && room.ratingOf[st.uid] != null) o.rating = room.ratingOf[st.uid];
+    return o;
+  };
   let spectators = 0;
   for (const c of room.clients) if (!seatOf(room, c.token)) spectators++;
   return {
     type: 'state',
     room: {
-      id: room.id, variant: room.variant, gameNo: room.gameNo, status: room.status, result: room.result, pending: room.pending,
+      id: room.id, variant: room.variant, rated: !!room.rated, gameNo: room.gameNo, status: room.status, result: room.result, pending: room.pending,
       seats: { r: seat('r'), b: seat('b') }, spectators,
       fen: g.fen(), turn: g.turn, check: g.inCheck(),
       // chỉ thông tin công khai: rv = mặt quân vừa lật, cap = quân bị ăn (quân úp bị ăn được lật ra)
@@ -114,14 +125,60 @@ function recordStats(room, winner) {
   const r = room.seats.r, b = room.seats.b;
   if (!r || !b || room.game.history.length < 2) return;
   if (r.uid && r.uid === b.uid) return; // cùng một tài khoản tự đánh với mình
-  for (const c of ['r', 'b']) {
-    const uid = room.seats[c].uid; if (!uid) continue;
-    const res = winner == null ? 'draw' : winner === c ? 'win' : 'loss';
-    store.recordResult(uid, res).then(u => {
-      if (!u) return;
-      for (const ws of room.clients) if (ws.userId === uid) { ws.user = u; send(ws, { type: 'account', user: auth.publicUser(u) }); }
-    }).catch(e => console.error('[store] recordResult', e.message));
+  // Elo: chỉ ván trong phòng ghép trận, đúng hai tài khoản đã được ghép
+  const rated = room.rated && r.uid && b.uid && room.ratingOf && room.ratingOf[r.uid] != null && room.ratingOf[b.uid] != null;
+  const ratedP = !rated ? Promise.resolve() : store.recordRatedGame({ r: r.uid, b: b.uid, variant: room.variant, winner }).then(res => {
+    if (!res) return;
+    for (const c of ['r', 'b']) {
+      const uid = c === 'r' ? r.uid : b.uid;
+      room.ratingOf[uid] = res[c].after;
+      for (const ws of wss.clients) if (ws.userId === uid) send(ws, { type: 'rating', variant: room.variant, roomId: room.id, ...res[c] });
+    }
+    broadcast(room);
+  }).catch(e => console.error('[store] recordRatedGame', e.message));
+  ratedP.then(() => {
+    for (const c of ['r', 'b']) {
+      const uid = c === 'r' ? r.uid : b.uid; if (!uid) continue;
+      const res = winner == null ? 'draw' : winner === c ? 'win' : 'loss';
+      store.recordResult(uid, res).then(u => {
+        if (!u) return;
+        for (const ws of wss.clients) if (ws.userId === uid) { ws.user = u; send(ws, { type: 'account', user: auth.publicUser(u) }); }
+      }).catch(e => console.error('[store] recordResult', e.message));
+    }
+  });
+}
+
+// ---------------- Ghép trận ----------------
+function mmStatus(ws, extra) {
+  const e = ws.mmKey != null && mm.get(ws.mmKey);
+  send(ws, e ? { type: 'mm_status', state: 'searching', variant: e.variant, rating: e.rating, waited: mm.waitMs(e), gap: gapOut(mm.gapFor(e)), ...extra }
+    : { type: 'mm_status', state: 'idle', ...extra });
+}
+const gapOut = g => (g === Infinity ? null : g);
+function mmCancel(ws, reason) { if (ws.mmKey != null && mm.remove(ws.mmKey)) mmStatus(ws, reason ? { reason } : undefined); }
+function runMatch() {
+  for (const [a, b] of mm.tick()) {
+    const wa = a.data, wb = b.data;
+    if (wa.readyState !== 1 || wb.readyState !== 1) { // một bên vừa rời: người còn lại tiếp tục chờ, giữ thời gian chờ
+      for (const e of [a, b]) if (e.data.readyState === 1) mm.add({ ...e, since: e.since });
+      continue;
+    }
+    startMatch(a, b);
   }
+}
+function startMatch(a, b) {
+  const room = createRoom({ variant: a.variant, ...MM_TIME });
+  room.rated = true;
+  room.ratingOf = { [a.uid]: a.rating, [b.uid]: b.rating };
+  const first = crypto.randomInt(2) ? 'r' : 'b'; // màu quân ngẫu nhiên
+  const colorOf = new Map([[a, first], [b, X.other(first)]]);
+  for (const e of [a, b]) room.seats[colorOf.get(e)] = { token: e.data.token, name: e.data.name, uid: e.uid };
+  for (const [e, o] of [[a, b], [b, a]]) {
+    send(e.data, { type: 'mm_found', roomId: room.id, variant: room.variant, color: colorOf.get(e), rating: e.rating,
+      opponent: { name: o.data.name, rating: o.rating }, timeControl: room.timeControl });
+  }
+  for (const e of [a, b]) joinRoom(e.data, room);
+  return room;
 }
 
 function startIfReady(room) {
@@ -177,7 +234,8 @@ const handlers = {
     send(ws, { type: 'welcome', token: ws.token });
   },
   create(ws, m) {
-    const room = createRoom(m);
+    mmCancel(ws);
+    const room = createRoom({ minutes: m.minutes, increment: m.increment, variant: m.variant });
     let color = m.color === 'b' ? 'b' : m.color === 'r' ? 'r' : (Math.random() < 0.5 ? 'r' : 'b');
     room.seats[color] = { token: ws.token, name: ws.name, uid: ws.userId || null };
     joinRoom(ws, room);
@@ -186,9 +244,24 @@ const handlers = {
   join(ws, m) {
     const room = rooms.get(clean(m.roomId, 12).toUpperCase());
     if (!room) return send(ws, { type: 'error', code: 'no_room', text: 'Không tìm thấy phòng. Có thể phòng đã hết hạn.' });
+    mmCancel(ws);
     joinRoom(ws, room);
   },
   leave(ws) { leaveRoom(ws); },
+  async mm_join(ws, m) {
+    if (!ws.userId) return send(ws, { type: 'error', code: 'mm_login', text: 'Đăng nhập để tìm đối thủ tự động.' });
+    const variant = VARIANTS.has(m.variant) ? m.variant : 'standard';
+    const u = await store.getUser(ws.userId);
+    if (!u) return send(ws, { type: 'error', code: 'mm_login', text: 'Đăng nhập để tìm đối thủ tự động.' });
+    if (ws.readyState !== 1) return;
+    ws.user = u;
+    // cùng một tài khoản chỉ được tìm ở một nơi: huỷ lượt tìm ở thẻ/thiết bị khác
+    for (const old of mm.removeUser(u.id, ws.mmKey)) if (old.data !== ws) mmStatus(old.data, { reason: 'other_tab' });
+    mm.add({ key: ws.mmKey, uid: u.id, name: ws.name, rating: u.ratings[variant].rating, variant, data: ws });
+    mmStatus(ws);
+    runMatch();
+  },
+  mm_leave(ws) { mm.remove(ws.mmKey); mmStatus(ws); },
   sit(ws, m, room) {
     const c = m.color === 'b' ? 'b' : 'r';
     if (room.seats[c] || seatOf(room, ws.token) || room.status === 'playing') return;
@@ -282,19 +355,20 @@ const handlers = {
 const NEEDS_ROOM = new Set(['sit', 'stand', 'move', 'undo_request', 'draw_offer', 'rematch', 'respond', 'cancel', 'resign', 'chat']);
 
 wss.on('connection', (ws, req) => {
-  ws.isAlive = true;
+  ws.isAlive = true; ws.mmKey = ++wsSeq;
   ws.on('pong', () => { ws.isAlive = true; });
   // đọc phiên đăng nhập từ cookie (nếu có); tin nhắn được xử lý tuần tự sau khi biết người dùng
   ws.ready = storeReady.then(() => auth.userFromCookieHeader(req.headers.cookie)).then(u => { ws.user = u; }, () => { ws.user = null; });
   ws.on('message', data => { ws.ready = ws.ready.then(() => onMessage(ws, data)); });
-  ws.on('close', () => leaveRoom(ws));
+  ws.on('close', () => { mm.remove(ws.mmKey); leaveRoom(ws); });
 });
 function onMessage(ws, data) {
   let m; try { m = JSON.parse(data); } catch { return; }
   if (!m || typeof m.type !== 'string' || !handlers.hasOwnProperty(m.type)) return;
   if (m.type !== 'hello' && !ws.token) return send(ws, { type: 'error', text: 'Chưa xác thực.' });
   if (NEEDS_ROOM.has(m.type) && !ws.room) return;
-  try { handlers[m.type](ws, m, ws.room); } catch (e) { console.error('handler error', m.type, e); }
+  try { return Promise.resolve(handlers[m.type](ws, m, ws.room)).catch(e => console.error('handler error', m.type, e)); }
+  catch (e) { console.error('handler error', m.type, e); }
 }
 
 // Hết giờ & heartbeat & dọn phòng
@@ -302,14 +376,33 @@ const clockTimer = setInterval(() => {
   for (const room of rooms.values()) {
     const run = clockRunning(room);
     if (run && liveClocks(room)[run] <= 0) { finish(room, X.other(run), 'timeout'); room.clocks[run] = 0; broadcast(room); }
+    if (room.rated) checkAbandon(room);
   }
 }, 250);
+const matchTimer = setInterval(runMatch, 1000);
+// Ván xếp hạng: người chơi mất kết nối quá ABANDON_MS -> xử thua (chưa đủ 2 nước thì huỷ ván, không tính điểm)
+function checkAbandon(room) {
+  room.away = room.away || {};
+  if (room.status !== 'playing') { room.away = {}; return; }
+  const now = Date.now();
+  for (const c of ['r', 'b']) {
+    const st = room.seats[c];
+    if (!st || online(room, st.token)) { delete room.away[c]; continue; }
+    if (!room.away[c]) {
+      room.away[c] = now;
+      notify(room, `${st.name} mất kết nối – nếu không quay lại trong ${Math.round(ABANDON_MS / 1000)} giây sẽ bị xử thua.`);
+    } else if (now - room.away[c] >= ABANDON_MS) {
+      if (room.game.history.length < 2) finish(room, null, 'aborted'); else finish(room, X.other(c), 'abandon');
+      room.away = {}; broadcast(room); return;
+    }
+  }
+}
 const pingTimer = setInterval(() => {
   for (const ws of wss.clients) { if (!ws.isAlive) { ws.terminate(); continue; } ws.isAlive = false; ws.ping(); }
   const now = Date.now();
   for (const [id, room] of rooms) if (!room.clients.size && now - room.lastActive > 12 * 3600e3) rooms.delete(id);
 }, 25000);
-clockTimer.unref(); pingTimer.unref(); // server.listen giữ tiến trình; cho phép đóng gọn khi kiểm thử trong cùng tiến trình
+clockTimer.unref(); pingTimer.unref(); matchTimer.unref(); // server.listen giữ tiến trình; cho phép đóng gọn khi kiểm thử trong cùng tiến trình
 
 server.listen(PORT, () => console.log(`Cờ tướng online đang chạy tại http://localhost:${PORT}`));
-module.exports = { server, rooms };
+module.exports = { server, rooms, mm, store, runMatch };

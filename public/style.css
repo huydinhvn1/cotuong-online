@@ -531,3 +531,40 @@ a.btn.primary { color: #2a1a0c; }
 .modal-card .donate-en { font-size: 13px; margin: 0 0 12px; text-align: left; padding-left: 2px; }
 .modal-card .donate-note { font-size: 13px; text-align: left; margin: 0 0 16px; padding: 10px 12px; border-radius: 12px; background: rgba(217, 166, 73, .1); border: 1px solid rgba(217, 166, 73, .22); color: #e6d8c3; }
 @media (max-width: 360px) { .modal-card { padding: 22px 16px; } .zelle-row { padding-left: 11px; } }
+
+/* ---------- Ghép trận tự động ---------- */
+.quick {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 430px); align-items: center; gap: 14px 20px;
+  padding: 18px 20px; margin: 0 0 18px; border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(217, 166, 73, .14), rgba(184, 34, 27, .1)); border: 1px solid rgba(217, 166, 73, .32);
+}
+.quick-icon { margin: 0; }
+.quick h2 { margin: 0; font-size: 20px; }
+.quick p { margin: 4px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.quick-ctl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; align-items: center; min-width: 0; }
+.quick-ctl .btn { padding: 12px 18px; }
+.quick-note { grid-column: 1 / -1; font-size: 13.5px; color: var(--muted); min-height: 20px; }
+.quick-note b { color: var(--gold2); }
+.quick-note .help-link { font-size: 13.5px; padding: 0; }
+.mm-wait { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 4px; }
+.mm-wait-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mm-wait-text b { font-size: 15.5px; }
+.mm-wait-text span { font-size: 13px; color: var(--muted); }
+.mm-time { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 800; font-size: 19px; color: var(--gold2); padding-left: 6px; }
+.spinner { width: 22px; height: 22px; flex: none; border-radius: 50%; border: 3px solid rgba(217, 166, 73, .25); border-top-color: var(--gold2); animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
+@media (max-width: 1000px) { .quick { grid-template-columns: auto minmax(0, 1fr); } .quick-ctl { grid-column: 1 / -1; } }
+@media (max-width: 480px) {
+  .quick { padding: 16px 14px; gap: 12px 14px; }
+  .quick h2 { font-size: 18px; }
+  .quick-ctl { grid-template-columns: minmax(0, 1fr); }
+  .quick-ctl .btn { width: 100%; }
+}
+.elo { color: var(--gold2); font-weight: 700; font-size: 12px; margin-left: 2px; font-variant-numeric: tabular-nums; }
+.rated-tag { color: #9fe3a8; font-weight: 700; }
+.acc-elo { font-size: 13px; color: var(--muted); }
+.acc-elo em { font-style: normal; font-weight: 700; color: var(--gold2); }
+.modal-card p.end-elo { margin: -10px 0 18px; color: #e6d8c3; font-size: 15px; }
+.modal-card p.end-elo b { color: var(--gold2); }
+.acc-elo > span { white-space: nowrap; }

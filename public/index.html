@@ -48,6 +48,24 @@
 
   <div id="resumeBox" hidden></div>
 
+  <!-- Ghép trận tự động (cần đăng nhập; chỉ hiện khi server bật đăng nhập) -->
+  <section class="quick" id="quickMatch" hidden aria-labelledby="quickTitle">
+    <div class="card-icon b quick-icon" aria-hidden="true">將</div>
+    <div class="quick-text">
+      <h2 id="quickTitle">Tìm đối thủ tự động</h2>
+      <p>Ghép với người chơi cùng trình độ · ván xếp hạng Elo · 10 phút + 5 giây mỗi nước</p>
+    </div>
+    <div class="quick-ctl" id="mmIdle">
+      <div class="seg" id="mmVariantSeg"><button data-v="standard" class="on">Cờ tướng</button><button data-v="jieqi">Cờ úp</button></div>
+      <button class="btn primary" id="mmBtn" type="button">Tìm đối thủ</button>
+      <div class="quick-note" id="mmNote"></div>
+    </div>
+    <div class="quick-ctl searching" id="mmSearching" hidden aria-live="polite">
+      <div class="mm-wait"><span class="spinner" aria-hidden="true"></span><div class="mm-wait-text"><b>Đang tìm đối thủ…</b><span id="mmInfo"></span></div><span class="mm-time" id="mmTime">0:00</span></div>
+      <button class="btn" id="mmCancel" type="button">Huỷ tìm</button>
+    </div>
+  </section>
+
   <section class="cards">
     <article class="card">
       <div class="card-icon r">俥</div>

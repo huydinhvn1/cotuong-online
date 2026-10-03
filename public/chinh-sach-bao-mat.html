@@ -46,6 +46,7 @@
       <li><b>Tên hiển thị</b>;</li>
       <li><b>Đường dẫn ảnh đại diện</b> (ảnh vẫn nằm trên máy chủ của Google/Facebook, chúng tôi không tải về lưu);</li>
       <li><b>Ngày tạo</b> tài khoản và <b>thống kê</b> số ván Thắng/Thua/Hoà của các ván online;</li>
+      <li><b>Điểm Elo</b> và số ván xếp hạng cho từng kiểu cờ (cờ tướng, cờ úp) khi bạn dùng “Tìm đối thủ tự động”;</li>
       <li>Một mã tài khoản nội bộ ngẫu nhiên.</li>
     </ul>
     <p>Chúng tôi <b>không</b> yêu cầu và <b>không</b> lưu địa chỉ email, số điện thoại, danh sách bạn bè hay mật khẩu. Mật khẩu của bạn chỉ nhập trên trang của Google/Facebook. Mã truy cập (access token) nhà cung cấp trả về chỉ được dùng một lần để đọc hồ sơ trên và không được lưu lại.</p>
@@ -53,7 +54,7 @@
     <h2>3. Mục đích sử dụng</h2>
     <ul>
       <li>Hiển thị tên và ảnh đại diện của bạn ở sảnh và trong phòng chơi (người cùng phòng sẽ thấy tên của bạn);</li>
-      <li>Ghi và hiển thị thống kê Thắng/Thua/Hoà;</li>
+      <li>Ghi và hiển thị thống kê Thắng/Thua/Hoà và điểm Elo; ghép bạn với đối thủ có Elo gần nhau (tên và Elo của bạn được hiển thị cho đối thủ được ghép);</li>
       <li>Giữ trạng thái đăng nhập.</li>
     </ul>
     <p>Chúng tôi không dùng dữ liệu cho quảng cáo và không lập hồ sơ người dùng.</p>
@@ -86,8 +87,8 @@
       <p class="legal-meta">Last updated: October 3, 2026</p>
 
       <p><b>Guests:</b> you can play without signing in. No account is created and nothing about you is stored in our database. Your typed name, moves and chat exist only in server memory while a room is active (cleared after 12 idle hours or on restart). Your browser keeps a few settings locally (name, a random seat token, last room, sound, saved game vs. computer).</p>
-      <p><b>Google / Facebook sign-in (optional):</b> we request only basic profile scopes (Google <code>openid profile</code>, Facebook <code>public_profile</code>) and store: the provider, the provider's user ID for this app, your display name, your profile picture URL, the account creation date, your win/loss/draw counts, and a random internal ID. We do <b>not</b> request or store your email address, phone number, friends list or password. The access token is used once to read that profile and is not kept.</p>
-      <p><b>Purpose:</b> to show your name and avatar in the lobby and game rooms, to keep your win/loss/draw statistics, and to keep you signed in (signed <code>ct_session</code> cookie, 30 days; temporary <code>ct_oauth</code> cookie during sign-in). No advertising or tracking.</p>
+      <p><b>Google / Facebook sign-in (optional):</b> we request only basic profile scopes (Google <code>openid profile</code>, Facebook <code>public_profile</code>) and store: the provider, the provider's user ID for this app, your display name, your profile picture URL, the account creation date, your win/loss/draw counts, your Elo rating and number of rated games per variant (standard / jieqi), and a random internal ID. We do <b>not</b> request or store your email address, phone number, friends list or password. The access token is used once to read that profile and is not kept.</p>
+      <p><b>Purpose:</b> to show your name and avatar in the lobby and game rooms, to keep your win/loss/draw statistics and Elo rating, to pair you with opponents of similar rating (your name and rating are shown to the matched opponent), and to keep you signed in (signed <code>ct_session</code> cookie, 30 days; temporary <code>ct_oauth</code> cookie during sign-in). No advertising or tracking.</p>
       <p><b>Storage:</b> a PostgreSQL database run by our hosting provider (Supabase); the app runs on Render.com over HTTPS. Fonts load from Google Fonts and avatars load from Google/Facebook servers. Data is kept until you ask us to delete it.</p>
       <p><b>No selling or sharing:</b> we do not sell, rent or share your data with third parties, except the infrastructure providers above or where required by law.</p>
       <p><b>Deletion and contact:</b> email <a href="mailto:huydinhvn1@gmail.com">huydinhvn1@gmail.com</a> to access or delete your data — see <a href="/xoa-du-lieu">Data deletion</a>. You can also revoke the app's access in your Google or Facebook account settings.</p>

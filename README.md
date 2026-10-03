@@ -34,6 +34,10 @@ npm test           # chạy kiểm thử (luật cờ, AI, server WebSocket)
   - Máy chỉ dùng thông tin công khai: quân úp được tính theo giá trị kỳ vọng của các quân còn có thể nằm dưới đó; máy không nhìn mặt quân úp của bên nào.
   - Không áp dụng cho chế độ hai người một máy (bản offline).
 - **Ủng hộ tác giả**: nút ❤ *Ủng hộ* ở thanh trên và link ở chân trang mở hộp hướng dẫn chuyển qua **Zelle** (email huydinhvn1@gmail.com hoặc SĐT[removed], người nhận Huy Dinh), có nút sao chép. Trang không xử lý thanh toán; Zelle chỉ dùng được với tài khoản ngân hàng tại Mỹ.
+- **Tìm đối thủ tự động + Elo** (cần đăng nhập): khung *Tìm đối thủ tự động* ở sảnh, chọn Cờ tướng hoặc Cờ úp → **Tìm đối thủ**. Server ghép hai người cùng kiểu cờ có Elo gần nhau nhất (người chờ lâu được xét trước); phạm vi chênh lệch bắt đầu ±100, nới thêm 50 mỗi 5 giây, sau 60 giây thì ghép với bất kỳ ai. Không bao giờ ghép một tài khoản với chính nó (tìm ở thẻ thứ hai thì thẻ cũ tự dừng). Khi ghép xong, server tạo phòng mới (màu quân ngẫu nhiên, 10 phút + 5 giây/nước) và đưa cả hai vào; hai bên thấy tên + Elo của nhau. Đang chờ có đồng hồ, nút **Huỷ tìm**; đóng trang/mất kết nối thì tự rời hàng đợi. Khách thấy gợi ý "Đăng nhập để tìm đối thủ tự động".
+  - **Elo** riêng cho cờ tướng và cờ úp, mặc định 1200, K = 40 trong 20 ván xếp hạng đầu, sau đó K = 32. Chỉ ván trong phòng ghép trận mới tính Elo (kể cả ván mới trong cùng phòng, đổi màu); phòng tự tạo không tính Elo nhưng vẫn tính Thắng/Thua/Hoà như trước. Ván phải có ít nhất 2 nước.
+  - Ván xếp hạng: người chơi mất kết nối quá 60 giây (đối thủ được báo trước) bị xử thua; nếu chưa đủ 2 nước thì ván bị huỷ, không tính điểm. Hết giờ, xin thua, hoà, chiếu bí… tính Elo như bình thường.
+  - Elo hiện ở khu tài khoản trên sảnh, trên thanh tên người chơi trong ván và trong hộp kết thúc ván (vd "1200 → 1220 (+20)").
 - **Tài khoản (tuỳ chọn)**: đăng nhập bằng Google hoặc Facebook để giữ tên và thống kê Thắng/Thua/Hoà. **Không bắt buộc** – khách vẫn nhập tên và chơi như cũ. Nếu server chưa cấu hình nhà cung cấp nào thì sảnh trông y như trước (không hiện khung tài khoản).
 - Giao diện: bàn gỗ, sông 楚河 漢界 (Sở Hà – Hán Giới), quân tròn chữ Hán, đánh dấu nước vừa đi, chấm nước đi hợp lệ, cảnh báo chiếu tướng, kéo-thả hoặc bấm để đi, âm thanh (bật/tắt), xoay bàn, hỗ trợ điện thoại.
 
@@ -42,11 +46,13 @@ npm test           # chạy kiểm thử (luật cờ, AI, server WebSocket)
 ```
 server.js            Server Express + WebSocket (ws), quản lý phòng trong bộ nhớ
 lib/auth.js          Đăng nhập Google/Facebook (OAuth code flow, cookie phiên có ký)
-lib/store.js         Lưu người dùng: Postgres (DATABASE_URL) hoặc file JSON (data/users.json)
+lib/store.js         Lưu người dùng + Elo: Postgres (DATABASE_URL) hoặc file JSON (data/users.json)
+lib/rating.js        Công thức Elo (mặc định 1200, K = 40 / 32)
+lib/matchmaker.js    Hàng đợi ghép trận (ưu tiên Elo gần nhất, phạm vi nới rộng theo thời gian chờ)
 shared/xiangqi.js    Bộ luật cờ tướng + cờ úp (dùng chung server + trình duyệt)
 shared/ai.js         AI (alpha-beta)
 public/              Giao diện (HTML/CSS/JS thuần, không cần build) + 3 trang pháp lý tĩnh
-test/                Kiểm thử: node --test
+test/                Kiểm thử: node --test (rating, matchmaking, store, server, auth, cờ úp…)
 ```
 
 ## Đăng nhập Google / Facebook (tuỳ chọn)
@@ -104,7 +110,7 @@ Nội dung tiếng Việt kèm phần tiếng Anh, liên kết ở chân trang s
 2. Bấm **Connect** (trên thanh trên cùng) → tab **Connection string** → **URI**, chọn **Session pooler** (IPv4, phù hợp Render). Chuỗi có dạng:
    `postgresql://postgres.<project-ref>:<MẬT-KHẨU>@aws-0-<region>.pooler.supabase.com:5432/postgres`
    Thay `<MẬT-KHẨU>` bằng mật khẩu ở bước 1 (ký tự đặc biệt trong mật khẩu cần mã hoá URL, vd `@` → `%40`).
-3. Không cần tạo bảng: server tự tạo bảng `cotuong_users` khi khởi động.
+3. Không cần tạo bảng: server tự tạo bảng `cotuong_users` và bảng Elo `cotuong_users_ratings` khi khởi động (`CREATE TABLE IF NOT EXISTS` – bảng cũ giữ nguyên dữ liệu, người dùng cũ có Elo mặc định 1200).
 
 Không đặt `DATABASE_URL` thì server lưu vào file `data/users.json` (chỉ hợp cho chạy trên máy; trên Render sẽ mất khi server khởi động lại).
 
@@ -123,7 +129,7 @@ Render → service **cotuong-online** → **Environment** → **Add Environment 
 
 Lưu → Render tự deploy lại. Kiểm tra: mở `https://cotuong-online-6qpn.onrender.com/api/me` phải thấy `"providers":{"google":true,"facebook":true}`.
 
-Biến tuỳ chọn: `USERS_FILE` (đường dẫn file JSON khi không có DATABASE_URL, mặc định `data/users.json`), `USERS_TABLE` (tên bảng Postgres, mặc định `cotuong_users`), `FACEBOOK_GRAPH_VERSION` (mặc định `v26.0`).
+Biến tuỳ chọn: `ABANDON_MS` (ván xếp hạng: thời gian mất kết nối trước khi bị xử thua, mặc định 60000), `USERS_FILE` (đường dẫn file JSON khi không có DATABASE_URL, mặc định `data/users.json`), `USERS_TABLE` (tên bảng Postgres, mặc định `cotuong_users`), `FACEBOOK_GRAPH_VERSION` (mặc định `v26.0`).
 
 > Không đặt `SESSION_SECRET` thì server tự sinh khoá ngẫu nhiên mỗi lần khởi động → mọi người bị đăng xuất sau mỗi lần Render khởi động lại.
 
@@ -132,7 +138,7 @@ Biến tuỳ chọn: `USERS_FILE` (đường dẫn file JSON khi không có DATA
 - Phiên đăng nhập là cookie `ct_session` có ký HMAC (httpOnly, SameSite=Lax, Secure khi chạy https), hạn 30 ngày. Đăng xuất: nút "Đăng xuất" ở sảnh.
 - Người đã đăng nhập: tên tài khoản tự dùng làm tên trong phòng. Khách: nhập tên như cũ.
 - Thống kê Thắng/Thua/Hoà chỉ được ghi khi ván online kết thúc, cả hai ghế đều có người, ván có ít nhất 2 nước, và hai ghế không cùng một tài khoản. Khách đấu với người có tài khoản thì chỉ người có tài khoản được ghi.
-- Lưu trong cơ sở dữ liệu: id, nhà cung cấp (google/facebook), id bên nhà cung cấp, tên hiển thị, ảnh đại diện, ngày tạo, số ván thắng/thua/hoà.
+- Lưu trong cơ sở dữ liệu: id, nhà cung cấp (google/facebook), id bên nhà cung cấp, tên hiển thị, ảnh đại diện, ngày tạo, số ván thắng/thua/hoà; Elo + số ván xếp hạng theo kiểu cờ (bảng `<USERS_TABLE>_ratings`, xoá người dùng thì Elo bị xoá theo). Cập nhật Elo của hai người trong một giao dịch (khoá dòng) nên không mất điểm khi nhiều ván kết thúc cùng lúc.
 - Kiểm thử Postgres thật (tuỳ chọn): `TEST_DATABASE_URL=postgres://... npm test`.
 
 ## Đưa lên Internet (deploy)

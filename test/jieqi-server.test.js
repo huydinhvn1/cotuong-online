@@ -14,10 +14,12 @@ process.env.USERS_FILE = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ct-jq-
 delete process.env.DATABASE_URL;
 const { server, rooms } = require('../server.js'); // chạy trong cùng tiến trình để đối chiếu với mặt thật trên server
 
+const ALL = []; // đóng hết khi kết thúc để tiến trình không treo nếu một bài thử lỗi
 class Client {
   constructor(token, name) { this.token = token; this.name = name; this.raw = []; this.msgs = []; this.waiters = []; }
   open() {
     return new Promise((res, rej) => {
+      ALL.push(this);
       this.ws = new WebSocket(`ws://localhost:${PORT}/ws`);
       this.ws.on('open', () => { this.send({ type: 'hello', token: this.token, name: this.name }); res(); });
       this.ws.on('error', rej);
@@ -36,9 +38,9 @@ class Client {
 }
 
 test.before(() => new Promise(r => server.listening ? r() : server.once('listening', r)));
-test.after(() => { if (server.closeAllConnections) server.closeAllConnections(); server.close(); });
+test.after(() => { for (const c of ALL) if (c.ws) c.ws.terminate(); if (server.closeAllConnections) server.closeAllConnections(); server.close(); });
 
-const ROOM_KEYS = ['id', 'variant', 'gameNo', 'status', 'result', 'pending', 'seats', 'spectators', 'fen', 'turn', 'check', 'moves', 'timeControl', 'clocks', 'running'].sort();
+const ROOM_KEYS = ['id', 'variant', 'rated', 'gameNo', 'status', 'result', 'pending', 'seats', 'spectators', 'fen', 'turn', 'check', 'moves', 'timeControl', 'clocks', 'running'].sort();
 const MOVE_KEYS = new Set(['from', 'to', 'n', 'side', 'cap', 'check', 'rv']);
 
 test('Phòng cờ úp: chỉ gửi thông tin công khai, mặt quân lộ đúng lúc lật / bị ăn', async () => {
@@ -58,7 +60,9 @@ test('Phòng cờ úp: chỉ gửi thông tin công khai, mặt quân lộ đún
   const plan = [[sq(7, 1), sq(0, 1)], [sq(0, 0), sq(0, 1)], [sq(6, 4), sq(5, 4)], [sq(3, 4), sq(4, 4)]];
   for (let i = 0; i < 16; i++) {
     let mv = plan[i];
-    if (!mv) { const ms = pub.moves(); const m = ms[(i * 7) % ms.length]; mv = [m.from, m.to]; }
+    if (pub.status().over) break;
+    // nước định sẵn có thể không hợp lệ với một số cách xáo (vd. quân vừa lật là Pháo ghim tướng) -> chọn nước khác
+    if (!mv || pub.moveError(mv[0], mv[1])) { const ms = pub.moves(); const m = ms[(i * 7) % ms.length]; mv = [m.from, m.to]; }
     const who = pub.turn === 'r' ? A : B, n = pub.history.length + 1;
     who.send({ type: 'move', from: mv[0], to: mv[1] });
     const st = await C.state(r => r.moves.length === n);
