@@ -161,3 +161,27 @@ test('PUBLIC_URL khác: mọi URL tuyệt đối (canonical, og, sitemap, robots
   assert.match(s.sitemap(), /<loc>https:\/\/staging\.example\.org\/en\/terms<\/loc>/);
   assert.equal(createSeo({ env: {}, rooms: new Map() }).BASE, SITE, 'mặc định cotuongvn.net');
 });
+
+test('Biểu tượng: favicon.ico (16/32/48), favicon.svg, apple-touch 180, manifest (any + maskable), có link trong mọi trang', async () => {
+  const ico = await fetch(BASE + '/favicon.ico'); assert.equal(ico.status, 200);
+  const ib = Buffer.from(await ico.arrayBuffer());
+  assert.equal(ib.readUInt16LE(0), 0); assert.equal(ib.readUInt16LE(2), 1); // ICO header
+  const sizes = []; for (let i = 0; i < ib.readUInt16LE(4); i++) sizes.push(ib[6 + i * 16] || 256);
+  assert.deepEqual(sizes.sort((a, b) => a - b), [16, 32, 48]);
+  const svg = await fetch(BASE + '/favicon.svg'); assert.equal(svg.status, 200); assert.match(svg.headers.get('content-type'), /image\/svg\+xml/);
+  const png = async (p, w) => { const r = await fetch(BASE + p); assert.equal(r.status, 200, p); const b = Buffer.from(await r.arrayBuffer()); assert.equal(b.toString('latin1', 1, 4), 'PNG', p); assert.equal(b.readUInt32BE(16), w, p); assert.equal(b.readUInt32BE(20), w, p); };
+  await png('/apple-touch-icon.png', 180); await png('/icon-192.png', 192); await png('/icon-512.png', 512); await png('/icon-512-maskable.png', 512);
+  await png('/favicon-16.png', 16); await png('/favicon-32.png', 32);
+  const mr = await fetch(BASE + '/manifest.webmanifest'); assert.equal(mr.status, 200);
+  const m = JSON.parse(await mr.text());
+  assert.equal(m.name, 'Cờ Tướng Online'); assert.equal(m.short_name, 'Cờ Tướng'); assert.equal(m.start_url, '/'); assert.equal(m.display, 'standalone');
+  assert.equal(m.theme_color, '#1a1310'); assert.equal(m.background_color, '#1a1310');
+  assert.ok(m.icons.some(i => i.purpose === 'maskable' && i.sizes === '512x512'));
+  assert.ok(m.icons.some(i => i.purpose === 'any' && i.sizes === '192x192'));
+  for (const i of m.icons) assert.equal((await fetch(BASE + i.src)).status, 200, i.src);
+  for (const p of ['/', '/chinh-sach-bao-mat', '/dieu-khoan', '/xoa-du-lieu', '/en/privacy', '/en/terms', '/en/data-deletion']) {
+    const h = await (await fetch(BASE + p)).text();
+    for (const re of [/<link rel="icon" href="\/favicon\.ico\?v=\w+"/, /<link rel="icon" href="\/favicon\.svg\?v=\w+" type="image\/svg\+xml">/, /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png\?v=\w+">/, /<link rel="manifest" href="\/manifest\.webmanifest\?v=\w+">/])
+      assert.match(h, re, p);
+  }
+});
