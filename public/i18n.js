@@ -17,8 +17,6 @@
   def('lang.btn', 'VI', 'EN');
   def('lang.aria', 'Ngôn ngữ: Tiếng Việt – chuyển sang English', 'Language: English – switch to Vietnamese');
   def('conn.connecting', 'Đang kết nối…', 'Connecting…');
-  def('donate.btn', 'Ủng hộ', 'Donate');
-  def('donate.aria', 'Ủng hộ tác giả', 'Support the author');
   def('inbox', 'Tin nhắn', 'Messages');
   def('inbox.unreadAria', 'Tin nhắn – {n} chưa đọc', 'Messages – {n} unread');
   def('sound.title', 'Âm thanh', 'Sound');
@@ -103,7 +101,6 @@
   def('foot.privacy', 'Chính sách bảo mật', 'Privacy Policy');
   def('foot.terms', 'Điều khoản sử dụng', 'Terms of Use');
   def('foot.deletion', 'Xoá dữ liệu', 'Data Deletion');
-  def('foot.donate', 'Ủng hộ tác giả', 'Support the author');
   def('resume.ai', 'Bạn có một ván <b>{v}</b> với máy đang dở · <b>cấp {lv}</b> · {moves}', 'Unfinished <b>{v}</b> game vs the computer · <b>{lv}</b> · {moves}');
   def('resume.continue', 'Chơi tiếp', 'Continue');
   def('resume.room', 'Phòng gần nhất: <b>{code}</b>', 'Last room: <b>{code}</b>');
@@ -255,15 +252,6 @@
   def('jq.r6', 'Không ai biết quân úp là gì, kể cả người cầm quân. Chiếu, chiếu bí, lộ mặt tướng, cấm chiếu dai… như cờ tướng.', 'Nobody knows what a face-down piece is, not even its owner. Check, checkmate, facing Generals, the ban on perpetual check… all work as in standard Xiangqi.');
   def('jq.ok', 'Đã hiểu', 'Got it');
 
-  // ---------- Ủng hộ (Zelle) ----------
-  def('dn.title', 'Ủng hộ tác giả qua Zelle', 'Support the author via Zelle');
-  def('dn.lead', 'Cảm ơn bạn rất nhiều!<span lang="en">Support the author via Zelle – thank you!</span>', 'Thank you so much for your support!');
-  def('dn.alt', 'Mã QR Zelle – người nhận {name} (Zelle QR code, recipient {name})', 'Zelle QR code – recipient {name}');
-  def('dn.to', 'Người nhận · Recipient', 'Recipient');
-  def('dn.how', 'Mở app ngân hàng → Zelle → quét mã QR<span lang="en">Open your bank app → Zelle → scan the QR code.</span>', 'Open your bank app → Zelle → scan the QR code.');
-  def('dn.save', 'Trên điện thoại: nhấn giữ ảnh để lưu, rồi chọn ảnh trong Zelle.', 'On a phone: press and hold the image to save it, then pick it in Zelle.');
-  def('dn.download', 'Tải ảnh QR', 'Download QR image');
-  def('dn.note', 'Zelle chỉ dùng được với tài khoản ngân hàng tại Mỹ. Trang này không xử lý thanh toán. <span lang="en">Zelle works only with US bank accounts; this site does not process payments.</span>', 'Zelle works only with US bank accounts. This site does not process any payments.');
 
   // ---------- Thẻ người chơi ----------
   def('pc.ai', 'Máy', 'Computer');

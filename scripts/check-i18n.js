@@ -1,5 +1,5 @@
 // Kiểm thử trình duyệt (Chromium + WebKit) cho bản song ngữ VI / EN.
-// Ở chế độ EN: duyệt sảnh, luật cờ úp, ủng hộ, thẻ người chơi, hộp thư / tin nhắn, ván với máy (cờ tướng + cờ úp), phòng online
+// Ở chế độ EN: duyệt sảnh, luật cờ úp, thẻ người chơi, hộp thư / tin nhắn, ván với máy (cờ tướng + cờ úp), phòng online
 // (thông báo server, chat, cầu hoà, kết thúc ván), ghép trận + Elo, lỗi "không tìm thấy phòng" – và khẳng định KHÔNG còn chữ tiếng Việt
 // nào trong DOM (chữ + title/aria-label/placeholder/alt), tiêu đề trang, <html lang>. Bố cục 320px không tràn / không chồng.
 // Ngôn ngữ mặc định theo navigator.language, nhớ trong localStorage, nút VI/EN đổi ngay không cần tải lại.
@@ -114,14 +114,10 @@ const modalFits = p => p.evaluate(() => { const c = document.querySelector('#mod
       const zo = await G.evaluate(() => window.__opened.slice());
       ok(zo.includes('https://chat.zalo.me/') || await G.evaluate(() => !!navigator.share), `${eng} Zalo (máy tính): sao chép lời mời + mở Zalo Web ${JSON.stringify(zo)}`);
       await G.click('#modalCard [data-act="modal-close"]');
-      await G.click('.topbar .donate-btn'); await G.waitForSelector('.zelle-qr img');
-      ok(/Support the author via Zelle/.test(await G.textContent('#modalCard')) && /HUY DINH/.test(await G.textContent('#modalCard')), `${eng} EN hộp Ủng hộ bằng tiếng Anh`);
-      await scan(G, 'ủng hộ'); ok(await modalFits(G), `${eng} EN hộp Ủng hộ vừa 320`); await shot(G, 'en-ung-ho-320');
       // đổi ngôn ngữ khi hộp đang mở: dịch lại ngay
       await G.evaluate(() => document.querySelector('#langBtn').click()); // hộp che thanh trên -> bấm bằng JS để thử dịch lại khi hộp đang mở
-      const vi = await G.evaluate(() => ({ lang: document.documentElement.lang, t: document.title, m: document.querySelector('#modalCard h3').textContent, btn: document.querySelector('#langBtn').textContent, ls: localStorage.getItem('ct_lang'), h: document.querySelector('.cards h2').textContent, foot: document.querySelector('.foot-links a').getAttribute('href') }));
-      ok(vi.lang === 'vi' && vi.t.startsWith('Cờ Tướng Online –') && vi.m === 'Ủng hộ tác giả qua Zelle' && vi.btn === 'VI' && vi.ls === 'vi' && vi.h === 'Chơi với bạn' && vi.foot === '/chinh-sach-bao-mat', `${eng} bấm VI/EN -> tiếng Việt ngay (cả hộp đang mở), nhớ localStorage ${JSON.stringify(vi)}`);
-      await G.click('#modalCard [data-act="modal-close"]');
+      const vi = await G.evaluate(() => ({ lang: document.documentElement.lang, t: document.title, btn: document.querySelector('#langBtn').textContent, ls: localStorage.getItem('ct_lang'), h: document.querySelector('.cards h2').textContent, foot: document.querySelector('.foot-links a').getAttribute('href') }));
+      ok(vi.lang === 'vi' && vi.t.startsWith('Cờ Tướng Online –') && vi.btn === 'VI' && vi.ls === 'vi' && vi.h === 'Chơi với bạn' && vi.foot === '/chinh-sach-bao-mat', `${eng} bấm VI/EN -> tiếng Việt ngay, nhớ localStorage ${JSON.stringify(vi)}`);
       await G.reload({ waitUntil: 'networkidle' });
       ok(await G.evaluate(() => document.documentElement.lang === 'vi' && document.querySelector('#langBtn').textContent === 'VI'), `${eng} tải lại trang vẫn giữ tiếng Việt (localStorage) dù trình duyệt là en-US`);
       await G.click('#langBtn'); await sleep(100); await scan(G, 'đổi lại EN');
@@ -237,7 +233,7 @@ const modalFits = p => p.evaluate(() => { const c = document.querySelector('#mod
       const nr = await A.waitForSelector('.toast.err', { timeout: 5000 }).catch(() => null);
       ok(!!nr && /Room not found/.test(await nr.textContent()), `${eng} EN lỗi server "không tìm thấy phòng"`);
       await scan(A, 'lỗi phòng không tồn tại');
-      // 375 trong ván, đã đăng nhập (thanh trên chật nhất: nhãn + ủng hộ + tin nhắn + VI/EN + âm thanh)
+      // 375 trong ván, đã đăng nhập (thanh trên chật nhất: nhãn + tin nhắn + VI/EN + âm thanh)
       for (const [w, h] of [[375, 667], [390, 844], [844, 390], [1280, 800]]) {
         const P = await mk(U1.id, w, h); await P.click('#aiBtn'); await P.waitForSelector('#game:not([hidden])'); await sleep(300);
         await lay(P, `ván với máy ${w}x${h} (đã đăng nhập)`); await scan(P, `ván ${w}x${h}`);

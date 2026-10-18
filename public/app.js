@@ -21,17 +21,7 @@
       [1, 2, 3, 4, 5, 6].map(function (i) { return '<li>' + t('jq.r' + i) + '</li>'; }).join('') + '</ul>' +
       '<div class="row"><button class="btn primary" data-act="modal-close">' + t('jq.ok') + '</button></div>';
   }
-  var ZELLE = { name: 'HUY DINH', qr: '/zelle-qr.png' };
-  function donateHtml() {
-    return '<h3 class="donate-title"><svg class="donate-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4 7 4c2.1 0 3.6 1.1 5 2.9C13.4 5.1 14.9 4 17 4c4 0 6.1 4.2 4.6 7.7C19.5 16.4 12 21 12 21z"/></svg>' + t('dn.title') + '</h3>' +
-      '<p class="donate-lead">' + t('dn.lead') + '</p>' +
-      '<figure class="zelle-qr"><img src="' + ZELLE.qr + '" width="1320" height="1752" alt="' + th('dn.alt', { name: ZELLE.name }) + '"></figure>' +
-      '<p class="zelle-to"><span class="k">' + t('dn.to') + '</span><b>' + ZELLE.name + '</b></p>' +
-      '<p class="donate-how">' + t('dn.how') + '</p>' +
-      '<p class="donate-save">' + t('dn.save') + ' <a href="' + ZELLE.qr + '" download="zelle-qr-huy-dinh.png">' + t('dn.download') + '</a></p>' +
-      '<p class="donate-note">' + t('dn.note') + '</p>' +
-      '<div class="row"><button class="btn primary" data-act="modal-close">' + t('close') + '</button></div>';
-  }
+
   function moveLabel(n) { return L10N.notation(n); }
   window.__moveLabel = moveLabel; // tiện cho kiểm thử
   /** Sao chép vào clipboard; trình duyệt cũ / không cho phép thì dùng textarea ẩn + execCommand */
@@ -577,7 +567,6 @@
     }
     if (act === 'modal-close') { closeModal(); return; }
     if (act === 'jqrules') { openModal(jqRules(), 'jqrules'); return; }
-    if (act === 'donate') { openModal(donateHtml(), 'donate'); return; }
     if (act === 'shareweb') { openModal(shareWebHtml(), 'shareweb'); return; }
     if (onDmAction(act, b)) return;
     if (S.mode === 'online') {
@@ -1338,8 +1327,7 @@
     if (MM.state === 'searching') tickMM();
     baseTitle = t(S.mode ? 'title' : 'title.home'); if (S.mode) renderStatus(); else updateTitle();
     var kind = $('#modal').hidden ? '' : $('#modal').dataset.kind;
-    if (kind === 'donate') openModal(donateHtml(), 'donate');
-    else if (kind === 'shareweb') openModal(shareWebHtml(), 'shareweb');
+    if (kind === 'shareweb') openModal(shareWebHtml(), 'shareweb');
     else if (kind === 'jqrules') openModal(jqRules(), 'jqrules');
     else if (kind === 'end') endGameUI(true);
     else if (kind === 'offer' && S.pending) showOfferModal(S.pending);
