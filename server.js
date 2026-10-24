@@ -90,6 +90,7 @@ app.delete('/api/blocks/:peer', blockRoute(false));
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
 const hdLobby = require('./lib/hdlobby');
+hdLobby.init({ store, auth, ready: storeReady });
 wss.on('error', e => console.warn('wss error', e && e.message));
 process.on('uncaughtException', e => console.error('uncaught', e)); // sảnh online cho huydinh.info/cotuong (WebSocket /hd)
 server.on('upgrade', (req, socket, head) => {
