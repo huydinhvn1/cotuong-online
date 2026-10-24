@@ -89,8 +89,11 @@ app.delete('/api/blocks/:peer', blockRoute(false));
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
-const hdLobby = require('./lib/hdlobby'); // sảnh online cho huydinh.info/cotuong (WebSocket /hd)
+const hdLobby = require('./lib/hdlobby');
+wss.on('error', e => console.warn('wss error', e && e.message));
+process.on('uncaughtException', e => console.error('uncaught', e)); // sảnh online cho huydinh.info/cotuong (WebSocket /hd)
 server.on('upgrade', (req, socket, head) => {
+  socket.on('error', () => { });
   const p = (req.url || '').split('?')[0];
   if (p === '/ws') wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
   else if (p === '/hd') hdLobby.handle(req, socket, head);
@@ -503,6 +506,7 @@ const handlers = {
 const NEEDS_ROOM = new Set(['sit', 'stand', 'move', 'undo_request', 'draw_offer', 'rematch', 'respond', 'cancel', 'resign', 'chat']);
 
 wss.on('connection', (ws, req) => {
+  ws.on('error', e => { console.warn('ws error', e && e.code || e && e.message); try { ws.terminate(); } catch { } });
   ws.isAlive = true; ws.mmKey = ++wsSeq;
   // tin nhắn riêng chỉ nhận từ trang cùng nguồn (chống trang lạ mở WebSocket bằng cookie của người dùng)
   const origin = req.headers.origin;
