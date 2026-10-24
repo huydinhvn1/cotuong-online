@@ -16,7 +16,7 @@ test.before(async () => {
   google = http.createServer((req, res) => {
     res.setHeader('content-type', 'application/json');
     if (req.url.startsWith('/token')) return res.end(JSON.stringify({ access_token: 'at' }));
-    if (req.url.startsWith('/me')) return res.end(JSON.stringify({ sub: 'g-1', name: 'Huy' }));
+    if (req.url.startsWith('/me')) return res.end(JSON.stringify({ sub: 'g-1', name: 'Huy', email: 'huy@example.com', picture: 'https://lh3.example/a.png' }));
     res.statusCode = 404; res.end('{}');
   });
   await new Promise(r => google.listen(0, r)); gBase = 'http://127.0.0.1:' + google.address().port;
@@ -116,7 +116,7 @@ test('đăng nhập Google (popup) -> mã -> WebSocket login, lưu câu nói nha
   assert.match(html, /https:\/\/huydinh\.app/); assert.match(html, /huydinh\.app\/cotuong\//);
   const token = JSON.parse(html.match(/var t=("[^"]*")/)[1]); assert.ok(token);
   const w = await client(); w.j({ type: 'login', token });
-  const acc = await w.wait(m => m.type === 'account'); assert.equal(acc.user.name, 'Huy'); assert.equal(acc.prefs, null);
+  const acc = await w.wait(m => m.type === 'account'); assert.equal(acc.user.name, 'Huy'); assert.equal(acc.user.email, 'huy@example.com'); assert.equal(acc.user.avatar, 'https://lh3.example/a.png'); assert.equal(acc.prefs, null);
   w.j({ type: 'prefs_set', data: { phrases: ['Chào', 'Hay quá'], name: 'Huy' } });
   await w.wait(m => m.type === 'prefs_saved'); w.close();
   const w2 = await client(); w2.j({ type: 'login', token });
