@@ -88,7 +88,14 @@ app.post('/api/blocks/:peer', blockRoute(true));
 app.delete('/api/blocks/:peer', blockRoute(false));
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 16 * 1024 });
+const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
+const hdLobby = require('./lib/hdlobby'); // sảnh online cho huydinh.info/cotuong (WebSocket /hd)
+server.on('upgrade', (req, socket, head) => {
+  const p = (req.url || '').split('?')[0];
+  if (p === '/ws') wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
+  else if (p === '/hd') hdLobby.handle(req, socket, head);
+  else socket.destroy();
+});
 
 /** @type {Map<string, any>} */
 const rooms = new Map();
